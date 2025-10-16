@@ -88,18 +88,18 @@ This is a greenfield project with no existing Go codebase. The project directory
   - [x] 5.12 Hide dropdown when Escape is pressed or when no suggestions are available
   - [x] 5.13 Write unit tests in `suggester_test.go` for various path scenarios and JSON structures
 
-- [ ] 6.0 Export Features (Clipboard & File Save)
-  - [ ] 6.1 Create `internal/export/clipboard.go` with `CopyToClipboard(content string)` function
-  - [ ] 6.2 Implement clipboard copy using atotto/clipboard library
-  - [ ] 6.3 Handle clipboard errors gracefully (show error message if clipboard unavailable)
-  - [ ] 6.4 Create `internal/export/file.go` with `SaveToFile(content string, filepath string)` function
-  - [ ] 6.5 Implement file writing with proper error handling and file permissions
-  - [ ] 6.6 Create a modal dialog using `tview.Modal` or `tview.InputField` to prompt for filename when saving
-  - [ ] 6.7 Wire up Ctrl+C keybinding to copy current output to clipboard
-  - [ ] 6.8 Wire up Ctrl+S keybinding to open save dialog
-  - [ ] 6.9 Show success/error messages in footer or as temporary notification
-  - [ ] 6.10 Wire up Ctrl+Q keybinding to quit the application
-  - [ ] 6.11 Write unit tests in `export_test.go` for file saving (use temp files)
+- [x] 6.0 Export Features (Clipboard & File Save)
+  - [x] 6.1 Create `internal/export/clipboard.go` with `CopyToClipboard(content string)` function
+  - [x] 6.2 Implement clipboard copy using atotto/clipboard library
+  - [x] 6.3 Handle clipboard errors gracefully (show error message if clipboard unavailable)
+  - [x] 6.4 Create `internal/export/file.go` with `SaveToFile(content string, filepath string)` function
+  - [x] 6.5 Implement file writing with proper error handling and file permissions
+  - [x] 6.6 Create a modal dialog using `tview.Modal` or `tview.InputField` to prompt for filename when saving
+  - [x] 6.7 Wire up Ctrl+C keybinding to copy current output to clipboard
+  - [x] 6.8 Wire up Ctrl+S keybinding to open save dialog
+  - [x] 6.9 Show success/error messages in footer or as temporary notification
+  - [x] 6.10 Wire up Ctrl+Q keybinding to quit the application
+  - [x] 6.11 Write unit tests in `export_test.go` for file saving (use temp files)
 
 ### Additional Tasks (Nice to Have)
 

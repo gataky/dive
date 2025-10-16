@@ -21,10 +21,14 @@ func createHeader() *tview.TextView {
 
 // createInputField creates the path input field component
 func createInputField() *tview.InputField {
+	style := tcell.Style{}
+	style.Background(tcell.ColorDefault)
+
 	inputField := tview.NewInputField().
 		SetLabel("> ").
 		SetFieldWidth(0). // Use all available width
-		SetPlaceholder("Enter gjson path (e.g., users.0.name)")
+		SetPlaceholder("Enter gjson path (e.g., users.0.name)").
+		SetPlaceholderStyle(style)
 
 	inputField.SetBorder(true).
 		SetTitle(" Query ").

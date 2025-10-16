@@ -1,7 +1,11 @@
 package ui
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gataky/dive/internal/autocomplete"
+	"github.com/gataky/dive/internal/export"
 	"github.com/gataky/dive/internal/query"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -9,25 +13,28 @@ import (
 
 // App represents the main application UI
 type App struct {
-	tviewApp            *tview.Application
-	layout              *tview.Flex
-	header              *tview.TextView
-	inputField          *tview.InputField
-	outputPanel         *tview.TextView
-	footer              *tview.TextView
+	tviewApp             *tview.Application
+	layout               *tview.Flex
+	header               *tview.TextView
+	inputField           *tview.InputField
+	outputPanel          *tview.TextView
+	footer               *tview.TextView
 	autocompleteDropdown *tview.List
-	jsonData            string
-	currentQuery        string
-	queryEngine         *query.Engine
-	dropdownVisible     bool
+	saveModal            *tview.InputField
+	jsonData             string
+	currentQuery         string
+	queryEngine          *query.Engine
+	dropdownVisible      bool
+	originalFooterText   string
 }
 
 // NewApp creates and initializes a new tview application with all UI components
 func NewApp(jsonData string) *App {
 	app := &App{
-		tviewApp:    tview.NewApplication(),
-		jsonData:    jsonData,
-		queryEngine: query.NewEngine(jsonData),
+		tviewApp:           tview.NewApplication(),
+		jsonData:           jsonData,
+		queryEngine:        query.NewEngine(jsonData),
+		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
 	}
 
 	app.initComponents()
@@ -35,6 +42,10 @@ func NewApp(jsonData string) *App {
 	app.setupKeyBindings()
 	app.setupInputFieldKeyBindings()
 	app.setupQueryCallbacks()
+
+	// Set the json data so it shows up on startup
+	result := app.queryEngine.Query(jsonData)
+	app.outputPanel.SetText(result.Value)
 
 	return app
 }
@@ -153,12 +164,12 @@ func (a *App) setupKeyBindings() {
 			a.tviewApp.Stop()
 			return nil
 		case tcell.KeyCtrlC:
-			// Copy to clipboard (to be implemented)
-			// TODO: Wire up clipboard copy functionality
+			// Copy current output to clipboard (task 6.7)
+			a.copyToClipboard()
 			return nil
 		case tcell.KeyCtrlS:
-			// Save to file (to be implemented)
-			// TODO: Wire up save to file functionality
+			// Open save dialog (task 6.8)
+			a.showSaveDialog()
 			return nil
 		}
 		return event
@@ -230,4 +241,96 @@ func (a *App) setupQueryCallbacks() {
 			a.inputField.SetBorderColor(tcell.ColorRed)
 		}
 	})
+}
+
+// showMessage displays a temporary message in the footer (task 6.9)
+func (a *App) showMessage(message string, isError bool) {
+	color := "green"
+	if isError {
+		color = "red"
+	}
+	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, message))
+
+	// Restore original footer text after 3 seconds
+	go func() {
+		time.Sleep(3 * time.Second)
+		a.tviewApp.QueueUpdateDraw(func() {
+			a.footer.SetText(a.originalFooterText)
+		})
+	}()
+}
+
+// copyToClipboard copies the current output to the clipboard (task 6.7)
+func (a *App) copyToClipboard() {
+	content := a.outputPanel.GetText(false)
+	err := export.CopyToClipboard(content)
+	if err != nil {
+		a.showMessage(fmt.Sprintf("Error: %v", err), true)
+	} else {
+		a.showMessage("Copied to clipboard!", false)
+	}
+}
+
+// showSaveDialog displays a modal dialog to prompt for filename (task 6.6 & 6.8)
+func (a *App) showSaveDialog() {
+	// Create a modal input field for filename
+	modal := tview.NewInputField().
+		SetLabel("Save to file: ").
+		SetFieldWidth(40).
+		SetText("output.json")
+
+	modal.SetBorder(true).
+		SetTitle(" Save Output ").
+		SetBorderColor(tcell.ColorYellow)
+
+	// Create a frame to center the modal
+	frame := tview.NewFrame(modal).
+		SetBorders(2, 2, 2, 2, 4, 4)
+
+	// Handle input
+	modal.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			filename := modal.GetText()
+			if filename != "" {
+				content := a.outputPanel.GetText(false)
+				err := export.SaveToFile(content, filename)
+				if err != nil {
+					a.showMessage(fmt.Sprintf("Error: %v", err), true)
+				} else {
+					a.showMessage(fmt.Sprintf("Saved to %s", filename), false)
+				}
+			}
+			// Restore original layout
+			a.restoreLayout()
+		} else if key == tcell.KeyEscape {
+			// Cancel and restore layout
+			a.restoreLayout()
+		}
+	})
+
+	// Show the modal
+	a.tviewApp.SetRoot(frame, true)
+	a.tviewApp.SetFocus(modal)
+}
+
+// restoreLayout restores the main application layout
+func (a *App) restoreLayout() {
+	if a.dropdownVisible {
+		// Rebuild layout with dropdown
+		a.layout.Clear()
+		a.layout.AddItem(a.header, 3, 0, false)
+		a.layout.AddItem(a.inputField, 3, 0, true)
+		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false)
+		a.layout.AddItem(a.outputPanel, 0, 1, false)
+		a.layout.AddItem(a.footer, 1, 0, false)
+	} else {
+		// Rebuild layout without dropdown
+		a.layout.Clear()
+		a.layout.AddItem(a.header, 3, 0, false)
+		a.layout.AddItem(a.inputField, 3, 0, true)
+		a.layout.AddItem(a.outputPanel, 0, 1, false)
+		a.layout.AddItem(a.footer, 1, 0, false)
+	}
+	a.tviewApp.SetRoot(a.layout, true)
+	a.tviewApp.SetFocus(a.inputField)
 }
