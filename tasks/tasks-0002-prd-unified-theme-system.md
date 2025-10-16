@@ -43,26 +43,26 @@ The application currently has:
   - [x] 2.5 Update `createFooter()` to use ColorDefault (no border, already correct)
   - [x] 2.6 Update `App.initComponents()` to pass theme to all component creation functions
 
-- [ ] 3.0 Implement Focus Tracking and Visual Indication
+- [x] 3.0 Implement Focus Tracking and Visual Indication
   - [x] 3.1 Add `theme` field and `focusedComponent` field to App struct
   - [x] 3.2 Initialize theme in `NewApp()` using `DefaultTheme()`
-  - [ ] 3.3 Create `setComponentFocus()` method to update border colors on focus change
-  - [ ] 3.4 Add focus handlers to input field to call `setComponentFocus()` when focused
-  - [ ] 3.5 Add focus handlers to autocomplete dropdown to update borders when focused
-  - [ ] 3.6 Add focus handlers to output panel to update borders when focused (for scrolling)
-  - [ ] 3.7 Update arrow key navigation to call `setComponentFocus()` when changing focus
+  - [x] 3.3 Create `setComponentFocus()` method to update border colors on focus change
+  - [x] 3.4 Add focus handlers to input field to call `setComponentFocus()` when focused
+  - [x] 3.5 Add focus handlers to autocomplete dropdown to update borders when focused
+  - [x] 3.6 Add focus handlers to output panel to update borders when focused (for scrolling)
+  - [x] 3.7 Update arrow key navigation to call `setComponentFocus()` when changing focus
 
-- [ ] 4.0 Integrate Theme with Special States
-  - [ ] 4.1 Update `setupQueryCallbacks()` to use theme.BorderValid instead of hardcoded ColorGreen
-  - [ ] 4.2 Update `setupQueryCallbacks()` to use theme.BorderInvalid instead of hardcoded ColorRed
-  - [ ] 4.3 Ensure valid/invalid state colors override focus colors in input field
-  - [ ] 4.4 Update `showMessage()` to use theme.BorderInvalid for error messages
-  - [ ] 4.5 Test that state colors take precedence over focus indication
+- [x] 4.0 Integrate Theme with Special States
+  - [x] 4.1 Update `setupQueryCallbacks()` to use theme.BorderValid instead of hardcoded ColorGreen
+  - [x] 4.2 Update `setupQueryCallbacks()` to use theme.BorderInvalid instead of hardcoded ColorRed
+  - [x] 4.3 Ensure valid/invalid state colors override focus colors in input field
+  - [x] 4.4 Update `showMessage()` to use theme.BorderInvalid for error messages
+  - [x] 4.5 Test that state colors take precedence over focus indication
 
-- [ ] 5.0 Update Modal Dialogs and Test Thoroughly
-  - [ ] 5.1 Update `showSaveDialog()` modal to use theme.BorderFocused instead of ColorYellow
-  - [ ] 5.2 Verify header keeps yellow accent color for branding (no change needed)
+- [x] 5.0 Update Modal Dialogs and Test Thoroughly
+  - [x] 5.1 Update `showSaveDialog()` modal to use theme.BorderFocused instead of ColorYellow
+  - [x] 5.2 Verify header keeps yellow accent color for branding (no change needed)
   - [ ] 5.3 Test focus indication in different terminal emulators (iTerm2, Terminal.app)
   - [ ] 5.4 Test with light and dark terminal themes
   - [ ] 5.5 Verify all components respond correctly to focus changes
-  - [ ] 5.6 Build and run full test suite to ensure no regressions
+  - [x] 5.6 Build and run full test suite to ensure no regressions

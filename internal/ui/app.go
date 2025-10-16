@@ -22,11 +22,20 @@ const (
 	FocusOutputPanel
 )
 
+func init() {
+	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
+	tview.Borders.VerticalFocus= tview.Borders.Vertical
+	tview.Borders.TopLeftFocus = tview.Borders.TopLeft
+	tview.Borders.TopRightFocus = tview.Borders.TopRight
+	tview.Borders.BottomLeftFocus = tview.Borders.BottomLeft
+	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
+}
+
+
 // App represents the main application UI
 type App struct {
 	tviewApp             *tview.Application
 	layout               *tview.Flex
-	header               *tview.TextView
 	inputField           *tview.InputField
 	outputPanel          *tview.TextView
 	footer               *tview.TextView
@@ -71,7 +80,6 @@ func NewApp(jsonData string) *App {
 
 // initComponents initializes all UI components
 func (a *App) initComponents() {
-	a.header = createHeader(a.theme)
 	a.inputField = createInputField(a.theme)
 	a.outputPanel = createOutputPanel(a.theme)
 	a.footer = createFooter(a.theme)
@@ -82,7 +90,6 @@ func (a *App) initComponents() {
 func (a *App) setupLayout() {
 	a.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(a.header, 3, 0, false).
 		AddItem(a.inputField, 3, 0, true).
 		AddItem(a.outputPanel, 0, 1, false).
 		AddItem(a.footer, 1, 0, false)
@@ -115,14 +122,33 @@ func (a *App) showDropdown(suggestions []string) {
 
 	// Set up input capture for the dropdown to handle Escape and navigation
 	a.autocompleteDropdown.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		currentItem := a.autocompleteDropdown.GetCurrentItem()
+		itemCount := a.autocompleteDropdown.GetItemCount()
+
 		switch event.Key() {
 		case tcell.KeyEscape:
 			// Hide dropdown and return focus to input field
 			a.hideDropdown()
 			return nil
+		case tcell.KeyTab:
+			// Move to next item, wrap to top if at bottom
+			if currentItem < itemCount-1 {
+				a.autocompleteDropdown.SetCurrentItem(currentItem + 1)
+			} else {
+				a.autocompleteDropdown.SetCurrentItem(0)
+			}
+			return nil
+		case tcell.KeyBacktab:
+			// Move to previous item (Shift+Tab), wrap to bottom if at top
+			if currentItem > 0 {
+				a.autocompleteDropdown.SetCurrentItem(currentItem - 1)
+			} else {
+				a.autocompleteDropdown.SetCurrentItem(itemCount - 1)
+			}
+			return nil
 		case tcell.KeyUp:
 			// If at the top of the list, return to input field
-			if a.autocompleteDropdown.GetCurrentItem() == 0 {
+			if currentItem == 0 {
 				a.tviewApp.SetFocus(a.inputField)
 				return nil
 			}
@@ -135,7 +161,6 @@ func (a *App) showDropdown(suggestions []string) {
 		a.dropdownVisible = true
 		// Rebuild layout with dropdown
 		a.layout.Clear()
-		a.layout.AddItem(a.header, 3, 0, false)
 		a.layout.AddItem(a.inputField, 3, 0, true)
 		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false) // Show dropdown with height of 8
 		a.layout.AddItem(a.outputPanel, 0, 1, false)
@@ -158,7 +183,6 @@ func (a *App) hideDropdown() {
 	a.dropdownVisible = false
 	// Rebuild layout without dropdown
 	a.layout.Clear()
-	a.layout.AddItem(a.header, 3, 0, false)
 	a.layout.AddItem(a.inputField, 3, 0, true)
 	a.layout.AddItem(a.outputPanel, 0, 1, false)
 	a.layout.AddItem(a.footer, 1, 0, false)
@@ -202,6 +226,10 @@ func (a *App) setupInputFieldKeyBindings() {
 		case tcell.KeyTab:
 			// Handle Tab key press to show autocomplete dropdown (task 5.9)
 			a.updateSuggestions()
+			// Automatically focus on the dropdown if it has suggestions
+			if a.dropdownVisible {
+				a.tviewApp.SetFocus(a.autocompleteDropdown)
+			}
 			return nil // Consume the Tab key event
 		case tcell.KeyEscape:
 			// Hide dropdown when Escape is pressed
@@ -284,9 +312,9 @@ func (a *App) setupFocusHandlers() {
 func (a *App) showMessage(message string, isError bool) {
 	// Use theme colors: "green" matches theme.ColorSuccess, "red" matches theme.ColorError
 	// tview's text markup requires string color names, not tcell.Color types
-	color := "green"
+	color := a.theme.ColorSuccess
 	if isError {
-		color = "red" // Matches theme.ColorError (same red as invalid paths)
+		color = a.theme.ColorError
 	}
 	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, message))
 
@@ -357,7 +385,6 @@ func (a *App) restoreLayout() {
 	if a.dropdownVisible {
 		// Rebuild layout with dropdown
 		a.layout.Clear()
-		a.layout.AddItem(a.header, 3, 0, false)
 		a.layout.AddItem(a.inputField, 3, 0, true)
 		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false)
 		a.layout.AddItem(a.outputPanel, 0, 1, false)
@@ -365,7 +392,6 @@ func (a *App) restoreLayout() {
 	} else {
 		// Rebuild layout without dropdown
 		a.layout.Clear()
-		a.layout.AddItem(a.header, 3, 0, false)
 		a.layout.AddItem(a.inputField, 3, 0, true)
 		a.layout.AddItem(a.outputPanel, 0, 1, false)
 		a.layout.AddItem(a.footer, 1, 0, false)
