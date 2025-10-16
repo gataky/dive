@@ -28,24 +28,24 @@ The application currently has:
 
 ## Tasks
 
-- [ ] 1.0 Create Theme Package and Color System
+- [x] 1.0 Create Theme Package and Color System
   - [x] 1.1 Create `internal/ui/theme` directory
   - [x] 1.2 Create `colors.go` with Theme struct containing all color fields
   - [x] 1.3 Define color constants: BorderFocused, BorderUnfocused, BorderValid, BorderInvalid, ColorAccent
   - [x] 1.4 Implement `DefaultTheme()` function returning theme with ColorDimGray for focused, muted colors for unfocused
   - [x] 1.5 Add helper methods to Theme struct for getting border colors based on focus/state
 
-- [ ] 2.0 Update Component Creation to Use Theme
-  - [ ] 2.1 Update `createHeader()` to accept theme parameter and use theme.BorderUnfocused
-  - [ ] 2.2 Update `createInputField()` to accept theme parameter and use theme.BorderUnfocused initially
-  - [ ] 2.3 Update `createOutputPanel()` to accept theme parameter and use theme.BorderUnfocused
-  - [ ] 2.4 Update `createAutocompleteDropdown()` to accept theme parameter and use theme.BorderUnfocused
-  - [ ] 2.5 Update `createFooter()` to use ColorDefault (no border, already correct)
-  - [ ] 2.6 Update `App.initComponents()` to pass theme to all component creation functions
+- [x] 2.0 Update Component Creation to Use Theme
+  - [x] 2.1 Update `createHeader()` to accept theme parameter and use theme.BorderUnfocused
+  - [x] 2.2 Update `createInputField()` to accept theme parameter and use theme.BorderUnfocused initially
+  - [x] 2.3 Update `createOutputPanel()` to accept theme parameter and use theme.BorderUnfocused
+  - [x] 2.4 Update `createAutocompleteDropdown()` to accept theme parameter and use theme.BorderUnfocused
+  - [x] 2.5 Update `createFooter()` to use ColorDefault (no border, already correct)
+  - [x] 2.6 Update `App.initComponents()` to pass theme to all component creation functions
 
 - [ ] 3.0 Implement Focus Tracking and Visual Indication
-  - [ ] 3.1 Add `theme` field and `focusedComponent` field to App struct
-  - [ ] 3.2 Initialize theme in `NewApp()` using `DefaultTheme()`
+  - [x] 3.1 Add `theme` field and `focusedComponent` field to App struct
+  - [x] 3.2 Initialize theme in `NewApp()` using `DefaultTheme()`
   - [ ] 3.3 Create `setComponentFocus()` method to update border colors on focus change
   - [ ] 3.4 Add focus handlers to input field to call `setComponentFocus()` when focused
   - [ ] 3.5 Add focus handlers to autocomplete dropdown to update borders when focused

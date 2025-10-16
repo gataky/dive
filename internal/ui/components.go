@@ -1,28 +1,29 @@
 package ui
 
 import (
+	"github.com/gataky/dive/internal/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 // createHeader creates the header component displaying the app name and instructions
-func createHeader() *tview.TextView {
+func createHeader(th *theme.Theme) *tview.TextView {
 	header := tview.NewTextView().
 		SetTextAlign(tview.AlignCenter).
 		SetDynamicColors(true).
 		SetText("[yellow::b]dive - Interactive JSON Viewer[::-]\n[gray]Navigate JSON with gjson paths | Press Tab for autocomplete[-]")
 
 	header.SetBorder(true).
-		SetBorderColor(tcell.ColorBlue).
-		SetBackgroundColor(tcell.ColorDefault)
+		SetBorderColor(th.BorderUnfocused).
+		SetBackgroundColor(th.Background)
 
 	return header
 }
 
 // createInputField creates the path input field component
-func createInputField() *tview.InputField {
+func createInputField(th *theme.Theme) *tview.InputField {
 	style := tcell.Style{}
-	style.Background(tcell.ColorDefault)
+	style.Background(th.FieldBackground)
 
 	inputField := tview.NewInputField().
 		SetLabel("> ").
@@ -32,27 +33,14 @@ func createInputField() *tview.InputField {
 
 	inputField.SetBorder(true).
 		SetTitle(" Query ").
-		SetBorderColor(tcell.ColorGreen).
-		SetBackgroundColor(tcell.ColorDefault)
-
-	// TODO: Wire up real-time query updates
-	// inputField.SetChangedFunc(func(text string) {
-	//     // Call query engine and update output panel
-	// })
-
-	// TODO: Wire up autocomplete on Tab key
-	// inputField.SetInputCapture(func(event *tview.EventKey) *tview.EventKey {
-	//     if event.Key() == tview.KeyTab {
-	//         // Show autocomplete dropdown
-	//     }
-	//     return event
-	// })
+		SetBorderColor(th.BorderUnfocused).
+		SetBackgroundColor(th.Background)
 
 	return inputField
 }
 
 // createOutputPanel creates the output panel component for displaying query results
-func createOutputPanel() *tview.TextView {
+func createOutputPanel(th *theme.Theme) *tview.TextView {
 	outputPanel := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -64,8 +52,8 @@ func createOutputPanel() *tview.TextView {
 
 	outputPanel.SetBorder(true).
 		SetTitle(" Output ").
-		SetBorderColor(tcell.ColorAqua).
-		SetBackgroundColor(tcell.ColorDefault)
+		SetBorderColor(th.BorderUnfocused).
+		SetBackgroundColor(th.Background)
 
 	// Set initial message
 	outputPanel.SetText("[gray]Enter a gjson path to query the JSON data...[-]")
@@ -74,27 +62,27 @@ func createOutputPanel() *tview.TextView {
 }
 
 // createFooter creates the footer component showing keybindings
-func createFooter() *tview.TextView {
+func createFooter(th *theme.Theme) *tview.TextView {
 	footer := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetText("[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit")
 
-	footer.SetBackgroundColor(tcell.ColorDefault)
+	footer.SetBackgroundColor(th.Background)
 
 	return footer
 }
 
 // createAutocompleteDropdown creates the autocomplete dropdown using tview.List
-func createAutocompleteDropdown() *tview.List {
+func createAutocompleteDropdown(th *theme.Theme) *tview.List {
 	dropdown := tview.NewList().
 		ShowSecondaryText(false).
 		SetHighlightFullLine(true)
 
 	dropdown.SetBorder(true).
 		SetTitle(" Suggestions ").
-		SetBorderColor(tcell.ColorYellow).
-		SetBackgroundColor(tcell.ColorDefault)
+		SetBorderColor(th.BorderUnfocused).
+		SetBackgroundColor(th.Background)
 
 	return dropdown
 }

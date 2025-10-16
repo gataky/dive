@@ -7,6 +7,7 @@ import (
 	"github.com/gataky/dive/internal/autocomplete"
 	"github.com/gataky/dive/internal/export"
 	"github.com/gataky/dive/internal/query"
+	"github.com/gataky/dive/internal/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -21,6 +22,7 @@ type App struct {
 	footer               *tview.TextView
 	autocompleteDropdown *tview.List
 	saveModal            *tview.InputField
+	theme                *theme.Theme
 	jsonData             string
 	currentQuery         string
 	queryEngine          *query.Engine
@@ -32,6 +34,7 @@ type App struct {
 func NewApp(jsonData string) *App {
 	app := &App{
 		tviewApp:           tview.NewApplication(),
+		theme:              theme.DefaultTheme(),
 		jsonData:           jsonData,
 		queryEngine:        query.NewEngine(jsonData),
 		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
@@ -52,11 +55,11 @@ func NewApp(jsonData string) *App {
 
 // initComponents initializes all UI components
 func (a *App) initComponents() {
-	a.header = createHeader()
-	a.inputField = createInputField()
-	a.outputPanel = createOutputPanel()
-	a.footer = createFooter()
-	a.autocompleteDropdown = createAutocompleteDropdown()
+	a.header = createHeader(a.theme)
+	a.inputField = createInputField(a.theme)
+	a.outputPanel = createOutputPanel(a.theme)
+	a.footer = createFooter(a.theme)
+	a.autocompleteDropdown = createAutocompleteDropdown(a.theme)
 }
 
 // setupLayout arranges all components in a vertical flex layout
