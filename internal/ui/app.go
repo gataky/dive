@@ -57,13 +57,14 @@ func NewApp(jsonData string) *App {
 		theme:              theme.DefaultTheme(),
 		jsonData:           jsonData,
 		queryEngine:        query.NewEngine(jsonData),
-		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
+		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+O[::-]: Focus Output | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
 	}
 
 	app.initComponents()
 	app.setupLayout()
 	app.setupKeyBindings()
 	app.setupInputFieldKeyBindings()
+	app.setupOutputPanelKeyBindings()
 	app.setupQueryCallbacks()
 	app.setupFocusHandlers()
 
@@ -214,6 +215,10 @@ func (a *App) setupKeyBindings() {
 			// Open save dialog (task 6.8)
 			a.showSaveDialog()
 			return nil
+		case tcell.KeyCtrlO:
+			// Focus on output panel for scrolling
+			a.tviewApp.SetFocus(a.outputPanel)
+			return nil
 		}
 		return event
 	})
@@ -248,6 +253,26 @@ func (a *App) setupInputFieldKeyBindings() {
 				return nil
 			}
 		}
+		return event
+	})
+}
+
+// setupOutputPanelKeyBindings configures key bindings for the output panel
+func (a *App) setupOutputPanelKeyBindings() {
+	a.outputPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEscape:
+			// Return focus to input field
+			a.tviewApp.SetFocus(a.inputField)
+			return nil
+		case tcell.KeyRune:
+			// If user types any character, return focus to input field and pass the character
+			if event.Rune() == 'i' || event.Rune() == 'I' {
+				a.tviewApp.SetFocus(a.inputField)
+				return nil
+			}
+		}
+		// Allow default behavior for arrow keys, PageUp/PageDown for scrolling
 		return event
 	})
 }

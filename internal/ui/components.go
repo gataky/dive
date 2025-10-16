@@ -56,7 +56,7 @@ func createFooter(th *theme.Theme) *tview.TextView {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetTextColor(th.TextDefault).
-		SetText("[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit")
+		SetText("[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+O[::-]: Focus Output | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit")
 
 	footer.SetBackgroundColor(th.Background)
 

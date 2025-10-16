@@ -1,0 +1,187 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice Johnson",
+      "email": "alice@example.com",
+      "age": 28,
+      "active": true,
+      "roles": ["admin", "developer"],
+      "address": {
+        "street": "123 Main St",
+        "city": "San Francisco",
+        "state": "CA",
+        "zipcode": "94102",
+        "coordinates": {
+          "lat": 37.7749,
+          "lng": -122.4194
+        }
+      },
+      "preferences": {
+        "theme": "dark",
+        "notifications": {
+          "email": true,
+          "push": false,
+          "sms": true
+        },
+        "language": "en-US"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Bob Smith",
+      "email": "bob@example.com",
+      "age": 35,
+      "active": false,
+      "roles": ["user"],
+      "address": {
+        "street": "456 Oak Ave",
+        "city": "New York",
+        "state": "NY",
+        "zipcode": "10001",
+        "coordinates": {
+          "lat": 40.7128,
+          "lng": -74.0060
+        }
+      },
+      "preferences": {
+        "theme": "light",
+        "notifications": {
+          "email": false,
+          "push": true,
+          "sms": false
+        },
+        "language": "en-US"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Carol Williams",
+      "email": "carol@example.com",
+      "age": 42,
+      "active": true,
+      "roles": ["developer", "reviewer"],
+      "address": {
+        "street": "789 Pine Rd",
+        "city": "Seattle",
+        "state": "WA",
+        "zipcode": "98101",
+        "coordinates": {
+          "lat": 47.6062,
+          "lng": -122.3321
+        }
+      },
+      "preferences": {
+        "theme": "dark",
+        "notifications": {
+          "email": true,
+          "push": true,
+          "sms": true
+        },
+        "language": "en-GB"
+      }
+    }
+  ],
+  "projects": [
+    {
+      "id": 101,
+      "name": "Project Alpha",
+      "description": "Revolutionary web application",
+      "status": "active",
+      "priority": "high",
+      "startDate": "2024-01-15",
+      "endDate": "2024-12-31",
+      "budget": 250000,
+      "team": {
+        "lead": "Alice Johnson",
+        "members": ["Bob Smith", "Carol Williams"],
+        "contractors": []
+      },
+      "milestones": [
+        {
+          "name": "MVP Launch",
+          "date": "2024-06-30",
+          "completed": true
+        },
+        {
+          "name": "Beta Release",
+          "date": "2024-09-15",
+          "completed": false
+        },
+        {
+          "name": "Production Release",
+          "date": "2024-12-31",
+          "completed": false
+        }
+      ],
+      "tags": ["web", "frontend", "react"]
+    },
+    {
+      "id": 102,
+      "name": "Project Beta",
+      "description": "Mobile application for iOS and Android",
+      "status": "planning",
+      "priority": "medium",
+      "startDate": "2024-03-01",
+      "endDate": null,
+      "budget": 150000,
+      "team": {
+        "lead": "Carol Williams",
+        "members": ["Alice Johnson"],
+        "contractors": ["External Developer 1"]
+      },
+      "milestones": [],
+      "tags": ["mobile", "ios", "android", "react-native"]
+    }
+  ],
+  "company": {
+    "name": "Tech Innovators Inc.",
+    "founded": 2010,
+    "headquarters": {
+      "address": "100 Tech Plaza",
+      "city": "Silicon Valley",
+      "state": "CA",
+      "country": "USA"
+    },
+    "employees": 150,
+    "departments": [
+      {
+        "name": "Engineering",
+        "headCount": 80,
+        "manager": "Alice Johnson"
+      },
+      {
+        "name": "Product",
+        "headCount": 25,
+        "manager": "Bob Smith"
+      },
+      {
+        "name": "Sales",
+        "headCount": 30,
+        "manager": "Carol Williams"
+      },
+      {
+        "name": "Marketing",
+        "headCount": 15,
+        "manager": "David Brown"
+      }
+    ],
+    "revenue": {
+      "2021": 5000000,
+      "2022": 7500000,
+      "2023": 10000000,
+      "2024": 12500000
+    }
+  },
+  "metadata": {
+    "version": "2.0",
+    "lastUpdated": "2024-10-15T12:00:00Z",
+    "apiEndpoint": "https://api.example.com/v2",
+    "features": {
+      "authentication": true,
+      "realtime": true,
+      "analytics": false,
+      "exportFormats": ["json", "csv", "xml"]
+    }
+  }
+}
