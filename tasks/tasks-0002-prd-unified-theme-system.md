@@ -30,10 +30,10 @@ The application currently has:
 
 - [ ] 1.0 Create Theme Package and Color System
   - [x] 1.1 Create `internal/ui/theme` directory
-  - [ ] 1.2 Create `colors.go` with Theme struct containing all color fields
-  - [ ] 1.3 Define color constants: BorderFocused, BorderUnfocused, BorderValid, BorderInvalid, ColorAccent
-  - [ ] 1.4 Implement `DefaultTheme()` function returning theme with ColorDimGray for focused, muted colors for unfocused
-  - [ ] 1.5 Add helper methods to Theme struct for getting border colors based on focus/state
+  - [x] 1.2 Create `colors.go` with Theme struct containing all color fields
+  - [x] 1.3 Define color constants: BorderFocused, BorderUnfocused, BorderValid, BorderInvalid, ColorAccent
+  - [x] 1.4 Implement `DefaultTheme()` function returning theme with ColorDimGray for focused, muted colors for unfocused
+  - [x] 1.5 Add helper methods to Theme struct for getting border colors based on focus/state
 
 - [ ] 2.0 Update Component Creation to Use Theme
   - [ ] 2.1 Update `createHeader()` to accept theme parameter and use theme.BorderUnfocused
