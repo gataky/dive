@@ -12,6 +12,16 @@ import (
 	"github.com/rivo/tview"
 )
 
+// FocusableComponent represents which component currently has focus
+type FocusableComponent int
+
+const (
+	FocusNone FocusableComponent = iota
+	FocusInputField
+	FocusDropdown
+	FocusOutputPanel
+)
+
 // App represents the main application UI
 type App struct {
 	tviewApp             *tview.Application
@@ -23,6 +33,7 @@ type App struct {
 	autocompleteDropdown *tview.List
 	saveModal            *tview.InputField
 	theme                *theme.Theme
+	focusedComponent     FocusableComponent
 	jsonData             string
 	currentQuery         string
 	queryEngine          *query.Engine
@@ -45,10 +56,15 @@ func NewApp(jsonData string) *App {
 	app.setupKeyBindings()
 	app.setupInputFieldKeyBindings()
 	app.setupQueryCallbacks()
+	app.setupFocusHandlers()
 
 	// Set the json data so it shows up on startup
 	result := app.queryEngine.Query(jsonData)
 	app.outputPanel.SetText(result.Value)
+
+	// Set initial focus state to match the initially focused component
+	app.focusedComponent = FocusInputField
+	app.inputField.SetBorderColor(app.theme.BorderFocused)
 
 	return app
 }
@@ -238,19 +254,39 @@ func (a *App) setupQueryCallbacks() {
 		// Implement visual feedback for invalid paths (task 4.9 & 4.10)
 		if result.IsValid {
 			// Restore normal color when path becomes valid (task 4.10)
-			a.inputField.SetBorderColor(tcell.ColorGreen)
+			a.inputField.SetBorderColor(a.theme.BorderValid)
 		} else {
 			// Change border color to red when path is invalid (task 4.9)
-			a.inputField.SetBorderColor(tcell.ColorRed)
+			a.inputField.SetBorderColor(a.theme.BorderInvalid)
 		}
+	})
+}
+
+// setupFocusHandlers wires up focus change handlers for all focusable components
+func (a *App) setupFocusHandlers() {
+	// Input field focus handler
+	a.inputField.SetFocusFunc(func() {
+		a.setComponentFocus(FocusInputField)
+	})
+
+	// Autocomplete dropdown focus handler
+	a.autocompleteDropdown.SetFocusFunc(func() {
+		a.setComponentFocus(FocusDropdown)
+	})
+
+	// Output panel focus handler (for scrolling)
+	a.outputPanel.SetFocusFunc(func() {
+		a.setComponentFocus(FocusOutputPanel)
 	})
 }
 
 // showMessage displays a temporary message in the footer (task 6.9)
 func (a *App) showMessage(message string, isError bool) {
+	// Use theme colors: "green" matches theme.ColorSuccess, "red" matches theme.ColorError
+	// tview's text markup requires string color names, not tcell.Color types
 	color := "green"
 	if isError {
-		color = "red"
+		color = "red" // Matches theme.ColorError (same red as invalid paths)
 	}
 	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, message))
 
@@ -284,7 +320,7 @@ func (a *App) showSaveDialog() {
 
 	modal.SetBorder(true).
 		SetTitle(" Save Output ").
-		SetBorderColor(tcell.ColorYellow)
+		SetBorderColor(a.theme.BorderFocused)
 
 	// Create a frame to center the modal
 	frame := tview.NewFrame(modal).
@@ -336,4 +372,37 @@ func (a *App) restoreLayout() {
 	}
 	a.tviewApp.SetRoot(a.layout, true)
 	a.tviewApp.SetFocus(a.inputField)
+}
+
+// setComponentFocus updates border colors when focus changes between components
+func (a *App) setComponentFocus(newFocus FocusableComponent) {
+	// If focus hasn't changed, nothing to do
+	if a.focusedComponent == newFocus {
+		return
+	}
+
+	// Remove focus styling from previously focused component
+	switch a.focusedComponent {
+	case FocusInputField:
+		// Input field might have validation state, only change if no validation
+		// Let validation states be handled by setupQueryCallbacks
+		a.inputField.SetBorderColor(a.theme.BorderUnfocused)
+	case FocusDropdown:
+		a.autocompleteDropdown.SetBorderColor(a.theme.BorderUnfocused)
+	case FocusOutputPanel:
+		a.outputPanel.SetBorderColor(a.theme.BorderUnfocused)
+	}
+
+	// Apply focus styling to newly focused component
+	switch newFocus {
+	case FocusInputField:
+		a.inputField.SetBorderColor(a.theme.BorderFocused)
+	case FocusDropdown:
+		a.autocompleteDropdown.SetBorderColor(a.theme.BorderFocused)
+	case FocusOutputPanel:
+		a.outputPanel.SetBorderColor(a.theme.BorderFocused)
+	}
+
+	// Update tracked focus
+	a.focusedComponent = newFocus
 }
