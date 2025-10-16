@@ -71,18 +71,18 @@ This is a greenfield project with no existing Go codebase. The project directory
   - [x] 3.7 Configure panel borders and titles using tview's box styling
   - [x] 3.8 Set up application focus management so input field has initial focus
 
-- [ ] 4.0 Path Query Engine & Real-time Updates
-  - [ ] 4.1 Create `internal/query/engine.go` with `Query(jsonData string, path string)` function
-  - [ ] 4.2 Implement gjson integration using `gjson.Get(jsonData, path)` to execute queries
-  - [ ] 4.3 Add path validation logic - check if `gjson.Get()` returns `.Exists()` as true
-  - [ ] 4.4 Implement state tracking for last valid path and last valid result
-  - [ ] 4.5 Create `QueryResult` struct with fields: `Value string`, `IsValid bool`, `Error string`
-  - [ ] 4.6 Handle invalid paths by returning last valid result with error message
-  - [ ] 4.7 Wire up input field's `SetChangedFunc()` callback to call query engine on each keystroke
-  - [ ] 4.8 Update output panel with query results in real-time
-  - [ ] 4.9 Implement visual feedback - change input field label color to red when path is invalid
-  - [ ] 4.10 Restore normal color when path becomes valid again
-  - [ ] 4.11 Write unit tests in `engine_test.go` for valid paths, invalid paths, edge cases (empty path, special characters)
+- [x] 4.0 Path Query Engine & Real-time Updates
+  - [x] 4.1 Create `internal/query/engine.go` with `Query(jsonData string, path string)` function
+  - [x] 4.2 Implement gjson integration using `gjson.Get(jsonData, path)` to execute queries
+  - [x] 4.3 Add path validation logic - check if `gjson.Get()` returns `.Exists()` as true
+  - [x] 4.4 Implement state tracking for last valid path and last valid result
+  - [x] 4.5 Create `QueryResult` struct with fields: `Value string`, `IsValid bool`, `Error string`
+  - [x] 4.6 Handle invalid paths by returning last valid result with error message
+  - [x] 4.7 Wire up input field's `SetChangedFunc()` callback to call query engine on each keystroke
+  - [x] 4.8 Update output panel with query results in real-time
+  - [x] 4.9 Implement visual feedback - change input field label color to red when path is invalid
+  - [x] 4.10 Restore normal color when path becomes valid again
+  - [x] 4.11 Write unit tests in `engine_test.go` for valid paths, invalid paths, edge cases (empty path, special characters)
 
 - [ ] 5.0 Autocomplete System
   - [ ] 5.1 Create `internal/autocomplete/suggester.go` with `GetSuggestions(jsonData string, currentPath string)` function

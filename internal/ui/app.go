@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/gataky/dive/internal/query"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -15,18 +16,21 @@ type App struct {
 	footer       *tview.TextView
 	jsonData     string
 	currentQuery string
+	queryEngine  *query.Engine
 }
 
 // NewApp creates and initializes a new tview application with all UI components
 func NewApp(jsonData string) *App {
 	app := &App{
-		tviewApp: tview.NewApplication(),
-		jsonData: jsonData,
+		tviewApp:    tview.NewApplication(),
+		jsonData:    jsonData,
+		queryEngine: query.NewEngine(jsonData),
 	}
 
 	app.initComponents()
 	app.setupLayout()
 	app.setupKeyBindings()
+	app.setupQueryCallbacks()
 
 	return app
 }
@@ -88,4 +92,27 @@ func (a *App) Stop() {
 // GetApplication returns the underlying tview application
 func (a *App) GetApplication() *tview.Application {
 	return a.tviewApp
+}
+
+// setupQueryCallbacks wires up the input field to call the query engine on each keystroke
+func (a *App) setupQueryCallbacks() {
+	a.inputField.SetChangedFunc(func(text string) {
+		// Store the current query
+		a.currentQuery = text
+
+		// Call the query engine with the current path
+		result := a.queryEngine.Query(text)
+
+		// Update output panel with query results in real-time (task 4.8)
+		a.outputPanel.SetText(result.Value)
+
+		// Implement visual feedback for invalid paths (task 4.9 & 4.10)
+		if result.IsValid {
+			// Restore normal color when path becomes valid (task 4.10)
+			a.inputField.SetBorderColor(tcell.ColorGreen)
+		} else {
+			// Change border color to red when path is invalid (task 4.9)
+			a.inputField.SetBorderColor(tcell.ColorRed)
+		}
+	})
 }
