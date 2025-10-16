@@ -2,52 +2,47 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
+
+	"github.com/gataky/dive/internal/input"
+	"github.com/gataky/dive/internal/ui"
 )
 
 func main() {
-	// Check if a file path was provided as an argument
-	var jsonData []byte
+	// Read JSON data from file or stdin
+	var jsonData string
 	var err error
 
 	if len(os.Args) > 1 {
 		// File path provided as argument
 		filePath := os.Args[1]
-		jsonData, err = os.ReadFile(filePath)
+		jsonData, err = input.ReadFromFile(filePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", filePath, err)
+			fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
-		// No argument provided, check if stdin has data
-		stat, err := os.Stdin.Stat()
+		// No argument provided, try reading from stdin
+		jsonData, err = input.ReadFromStdin()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error checking stdin: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Check if stdin is being piped
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			// Data is being piped to stdin
-			jsonData, err = io.ReadAll(os.Stdin)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
-				os.Exit(1)
-			}
-		} else {
-			// No file provided and no piped input
+			// No piped input
 			printUsage()
 			os.Exit(1)
 		}
 	}
 
-	// At this point we have JSON data in jsonData
-	// For now, just print that we successfully read the data
-	fmt.Printf("Successfully read %d bytes of JSON data\n", len(jsonData))
+	// Validate that we have non-empty JSON data
+	if jsonData == "" {
+		fmt.Fprintf(os.Stderr, "Error: empty JSON data\n")
+		os.Exit(1)
+	}
 
-	// TODO: Validate JSON
-	// TODO: Initialize UI
+	// Initialize and run the UI
+	app := ui.NewApp(jsonData)
+	if err := app.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running application: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func printUsage() {

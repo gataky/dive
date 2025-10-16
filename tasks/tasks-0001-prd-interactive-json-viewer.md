@@ -48,17 +48,6 @@ This is a greenfield project with no existing Go codebase. The project directory
   - [x] 2.3 Add JSON validation using `json.Valid()` from standard library
   - [x] 2.4 Return raw JSON as string and any errors
   - [x] 2.5 Write unit tests in `reader_test.go` for file reading, stdin reading, and invalid JSON handling
-    - TestReadFromFile:
-      - valid JSON file
-      - non-existent file
-      - empty file
-      - invalid JSON
-      - complex valid JSON
-      - JSON array
-    - TestReadFromStdin:
-      - valid JSON from stdin
-      - invalid JSON from stdin
-      - empty stdin
   - [x] 2.6 Handle edge cases: empty files, non-existent files, invalid JSON with clear error messages
 
 - [x] 3.0 Terminal UI Layout with tview
