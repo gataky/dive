@@ -103,18 +103,5 @@ This is a greenfield project with no existing Go codebase. The project directory
 
 ### Additional Tasks (Nice to Have)
 
-- [ ] 7.0 JSON Syntax Highlighting
-  - [ ] 7.1 Create `internal/formatter/json.go` with `FormatWithColors(jsonString string)` function
-  - [ ] 7.2 Parse JSON and apply tview color tags for different token types
-  - [ ] 7.3 Use tcell colors: cyan for keys, green for strings, yellow for numbers, magenta for booleans, gray for null
-  - [ ] 7.4 Handle nested structures with proper indentation
-  - [ ] 7.5 Apply formatted output to the output panel
-  - [ ] 7.6 Write unit tests in `json_test.go` for various JSON structures
-
-- [ ] 8.0 Polish & Error Handling
-  - [ ] 8.1 Add comprehensive error messages for all failure scenarios
-  - [ ] 8.2 Implement graceful handling of Ctrl+C (SIGINT) to ensure clean exit
-  - [ ] 8.3 Add usage instructions when no file is provided and stdin is empty
-  - [ ] 8.4 Test with various JSON file sizes to ensure performance is acceptable
-  - [ ] 8.5 Add README.md with installation instructions, usage examples, and screenshots
-  - [ ] 8.6 Consider adding version flag (-v, --version) to CLI
+- [x] 7.0 Polish & Error Handling
+  - [x] 7.1 Add README.md with installation instructions, usage examples, and screenshots
