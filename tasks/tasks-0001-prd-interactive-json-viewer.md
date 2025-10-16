@@ -84,20 +84,20 @@ This is a greenfield project with no existing Go codebase. The project directory
   - [x] 4.10 Restore normal color when path becomes valid again
   - [x] 4.11 Write unit tests in `engine_test.go` for valid paths, invalid paths, edge cases (empty path, special characters)
 
-- [ ] 5.0 Autocomplete System
-  - [ ] 5.1 Create `internal/autocomplete/suggester.go` with `GetSuggestions(jsonData string, currentPath string)` function
-  - [ ] 5.2 Parse the current path to determine the base path (everything before the last incomplete segment)
-  - [ ] 5.3 Use gjson to query the JSON at the base path level
-  - [ ] 5.4 Extract available keys at the current level from the gjson result
-  - [ ] 5.5 Filter suggestions based on what the user has typed so far (prefix matching)
-  - [ ] 5.6 Return a slice of suggestion strings
-  - [ ] 5.7 Create autocomplete dropdown UI using `tview.List` component
-  - [ ] 5.8 Show dropdown below input field when suggestions are available
-  - [ ] 5.9 Handle Tab key press in input field to show autocomplete dropdown
-  - [ ] 5.10 Handle arrow keys (Up/Down) to navigate dropdown selections
-  - [ ] 5.11 Handle Enter key to select a suggestion and update the path input
-  - [ ] 5.12 Hide dropdown when Escape is pressed or when no suggestions are available
-  - [ ] 5.13 Write unit tests in `suggester_test.go` for various path scenarios and JSON structures
+- [x] 5.0 Autocomplete System
+  - [x] 5.1 Create `internal/autocomplete/suggester.go` with `GetSuggestions(jsonData string, currentPath string)` function
+  - [x] 5.2 Parse the current path to determine the base path (everything before the last incomplete segment)
+  - [x] 5.3 Use gjson to query the JSON at the base path level
+  - [x] 5.4 Extract available keys at the current level from the gjson result
+  - [x] 5.5 Filter suggestions based on what the user has typed so far (prefix matching)
+  - [x] 5.6 Return a slice of suggestion strings
+  - [x] 5.7 Create autocomplete dropdown UI using `tview.List` component
+  - [x] 5.8 Show dropdown below input field when suggestions are available
+  - [x] 5.9 Handle Tab key press in input field to show autocomplete dropdown
+  - [x] 5.10 Handle arrow keys (Up/Down) to navigate dropdown selections
+  - [x] 5.11 Handle Enter key to select a suggestion and update the path input
+  - [x] 5.12 Hide dropdown when Escape is pressed or when no suggestions are available
+  - [x] 5.13 Write unit tests in `suggester_test.go` for various path scenarios and JSON structures
 
 - [ ] 6.0 Export Features (Clipboard & File Save)
   - [ ] 6.1 Create `internal/export/clipboard.go` with `CopyToClipboard(content string)` function

@@ -80,3 +80,17 @@ func createFooter() *tview.TextView {
 
 	return footer
 }
+
+// createAutocompleteDropdown creates the autocomplete dropdown using tview.List
+func createAutocompleteDropdown() *tview.List {
+	dropdown := tview.NewList().
+		ShowSecondaryText(false).
+		SetHighlightFullLine(true)
+
+	dropdown.SetBorder(true).
+		SetTitle(" Suggestions ").
+		SetBorderColor(tcell.ColorYellow).
+		SetBackgroundColor(tcell.ColorDefault)
+
+	return dropdown
+}
