@@ -20,17 +20,17 @@ const (
 	FocusInputField
 	FocusDropdown
 	FocusOutputPanel
+	FocusHelpPanel
 )
 
 func init() {
 	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
-	tview.Borders.VerticalFocus= tview.Borders.Vertical
+	tview.Borders.VerticalFocus = tview.Borders.Vertical
 	tview.Borders.TopLeftFocus = tview.Borders.TopLeft
 	tview.Borders.TopRightFocus = tview.Borders.TopRight
 	tview.Borders.BottomLeftFocus = tview.Borders.BottomLeft
 	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
 }
-
 
 // App represents the main application UI
 type App struct {
@@ -40,6 +40,7 @@ type App struct {
 	outputPanel          *tview.TextView
 	footer               *tview.TextView
 	autocompleteDropdown *tview.List
+	helpPanel            *tview.TextView
 	saveModal            *tview.InputField
 	theme                *theme.Theme
 	focusedComponent     FocusableComponent
@@ -47,6 +48,8 @@ type App struct {
 	currentQuery         string
 	queryEngine          *query.Engine
 	dropdownVisible      bool
+	helpPanelVisible     bool
+	focusBeforeHelp      FocusableComponent
 	originalFooterText   string
 }
 
@@ -57,7 +60,7 @@ func NewApp(jsonData string) *App {
 		theme:              theme.DefaultTheme(),
 		jsonData:           jsonData,
 		queryEngine:        query.NewEngine(jsonData),
-		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]Ctrl+O[::-]: Focus Output | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
+		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]F1[::-]: Help | [white::b]Ctrl+O[::-]: Focus Output | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
 	}
 
 	app.initComponents()
@@ -65,6 +68,7 @@ func NewApp(jsonData string) *App {
 	app.setupKeyBindings()
 	app.setupInputFieldKeyBindings()
 	app.setupOutputPanelKeyBindings()
+	app.setupHelpPanelKeyBindings()
 	app.setupQueryCallbacks()
 	app.setupFocusHandlers()
 
@@ -85,6 +89,7 @@ func (a *App) initComponents() {
 	a.outputPanel = createOutputPanel(a.theme)
 	a.footer = createFooter(a.theme)
 	a.autocompleteDropdown = createAutocompleteDropdown(a.theme)
+	a.helpPanel = createHelpPanel(a.theme)
 }
 
 // setupLayout arranges all components in a vertical flex layout
@@ -215,6 +220,10 @@ func (a *App) setupKeyBindings() {
 			// Open save dialog (task 6.8)
 			a.showSaveDialog()
 			return nil
+		case tcell.KeyF1:
+			// Toggle help panel
+			a.toggleHelpPanel()
+			return nil
 		case tcell.KeyCtrlO:
 			// Focus on output panel for scrolling
 			a.tviewApp.SetFocus(a.outputPanel)
@@ -277,6 +286,20 @@ func (a *App) setupOutputPanelKeyBindings() {
 	})
 }
 
+// setupHelpPanelKeyBindings configures key bindings for the help panel
+func (a *App) setupHelpPanelKeyBindings() {
+	a.helpPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEscape:
+			// Hide help panel and return to previous focus
+			a.hideHelpPanel()
+			return nil
+		}
+		// Allow default behavior for arrow keys, PageUp/PageDown, Home/End for scrolling
+		return event
+	})
+}
+
 // Run starts the tview application
 func (a *App) Run() error {
 	return a.tviewApp.Run()
@@ -330,6 +353,11 @@ func (a *App) setupFocusHandlers() {
 	// Output panel focus handler (for scrolling)
 	a.outputPanel.SetFocusFunc(func() {
 		a.setComponentFocus(FocusOutputPanel)
+	})
+
+	// Help panel focus handler
+	a.helpPanel.SetFocusFunc(func() {
+		a.setComponentFocus(FocusHelpPanel)
 	})
 }
 
@@ -425,6 +453,81 @@ func (a *App) restoreLayout() {
 	a.tviewApp.SetFocus(a.inputField)
 }
 
+// toggleHelpPanel shows or hides the help panel
+func (a *App) toggleHelpPanel() {
+	if a.helpPanelVisible {
+		a.hideHelpPanel()
+	} else {
+		a.showHelpPanel()
+	}
+}
+
+// showHelpPanel displays the help panel on the right side
+func (a *App) showHelpPanel() {
+	if a.helpPanelVisible {
+		return
+	}
+
+	// Store current focus to restore later
+	a.focusBeforeHelp = a.focusedComponent
+
+	a.helpPanelVisible = true
+
+	// Create vertical flex for main content (left side)
+	mainContent := tview.NewFlex().
+		SetDirection(tview.FlexRow)
+
+	mainContent.AddItem(a.inputField, 3, 0, true)
+	if a.dropdownVisible {
+		mainContent.AddItem(a.autocompleteDropdown, 8, 0, false)
+	}
+	mainContent.AddItem(a.outputPanel, 0, 1, false)
+	mainContent.AddItem(a.footer, 1, 0, false)
+
+	// Create horizontal split (50/50) with main content on left, help panel on right
+	a.layout.Clear()
+	a.layout.SetDirection(tview.FlexColumn)
+	a.layout.AddItem(mainContent, 0, 1, true)
+	a.layout.AddItem(a.helpPanel, 0, 1, false)
+
+	// Focus the help panel
+	a.tviewApp.SetFocus(a.helpPanel)
+}
+
+// hideHelpPanel hides the help panel and restores original layout
+func (a *App) hideHelpPanel() {
+	if !a.helpPanelVisible {
+		return
+	}
+
+	a.helpPanelVisible = false
+
+	// Reset help panel scroll to top
+	a.helpPanel.ScrollToBeginning()
+
+	// Rebuild original vertical layout
+	a.layout.Clear()
+	a.layout.SetDirection(tview.FlexRow)
+	a.layout.AddItem(a.inputField, 3, 0, true)
+	if a.dropdownVisible {
+		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false)
+	}
+	a.layout.AddItem(a.outputPanel, 0, 1, false)
+	a.layout.AddItem(a.footer, 1, 0, false)
+
+	// Restore focus to component that had it before help opened
+	switch a.focusBeforeHelp {
+	case FocusInputField:
+		a.tviewApp.SetFocus(a.inputField)
+	case FocusDropdown:
+		a.tviewApp.SetFocus(a.autocompleteDropdown)
+	case FocusOutputPanel:
+		a.tviewApp.SetFocus(a.outputPanel)
+	default:
+		a.tviewApp.SetFocus(a.inputField)
+	}
+}
+
 // setComponentFocus updates border colors when focus changes between components
 func (a *App) setComponentFocus(newFocus FocusableComponent) {
 	// If focus hasn't changed, nothing to do
@@ -442,6 +545,8 @@ func (a *App) setComponentFocus(newFocus FocusableComponent) {
 		a.autocompleteDropdown.SetBorderColor(a.theme.BorderUnfocused)
 	case FocusOutputPanel:
 		a.outputPanel.SetBorderColor(a.theme.BorderUnfocused)
+	case FocusHelpPanel:
+		a.helpPanel.SetBorderColor(a.theme.BorderUnfocused)
 	}
 
 	// Apply focus styling to newly focused component
@@ -452,6 +557,8 @@ func (a *App) setComponentFocus(newFocus FocusableComponent) {
 		a.autocompleteDropdown.SetBorderColor(a.theme.BorderFocused)
 	case FocusOutputPanel:
 		a.outputPanel.SetBorderColor(a.theme.BorderFocused)
+	case FocusHelpPanel:
+		a.helpPanel.SetBorderColor(a.theme.BorderFocused)
 	}
 
 	// Update tracked focus
