@@ -76,3 +76,24 @@ func createAutocompleteDropdown(th *theme.Theme) *tview.List {
 
 	return dropdown
 }
+
+// createHelpPanel creates the help panel component for displaying gjson syntax help
+func createHelpPanel(th *theme.Theme) *tview.TextView {
+	style := (tcell.Style{}).
+		Background(th.Background)
+
+	helpPanel := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWordWrap(true).
+		SetTextColor(th.TextDefault).
+		SetText(getHelpContent()).
+		SetTextStyle(style)
+
+	helpPanel.SetBorder(true).
+		SetTitle(" gjson Syntax Help ").
+		SetBorderColor(th.BorderFocused).
+		SetBackgroundColor(th.Background)
+
+	return helpPanel
+}
