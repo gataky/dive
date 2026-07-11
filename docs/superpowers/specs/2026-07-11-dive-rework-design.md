@@ -49,8 +49,8 @@ One vertical flex, created once at startup and never rebuilt:
 └───────────────────────────────────────────────┘
   name   nationality                                1 row suggestions bar
 ┌ users.0 ──────────────────────────────────────┐
-│ {                                              │   flex-grow output panel,
-│   "name": "Ada", ...                           │   title = resolved path
+│ {                                             │   flex-grow output panel,
+│   "name": "Ada", ...                          │   title = resolved path
 └───────────────────────────────────────────────┘
  Tab: Complete | F1: Help | Ctrl+Y: Copy | ...      1 row footer
 ```
