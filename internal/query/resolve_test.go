@@ -7,7 +7,8 @@ const doc = `{
 		{"name": "Alice", "age": 28, "tags": ["a", "b"]},
 		{"name": "Bob", "age": 35}
 	],
-	"company": {"name": "Acme", "founded": 2010}
+	"company": {"name": "Acme", "founded": 2010},
+	"empty": []
 }`
 
 func TestResolve(t *testing.T) {
@@ -29,6 +30,9 @@ func TestResolve(t *testing.T) {
 		{"count query", "users.#", "users.#", "", "2"},
 		{"filter query", `users.#(age>30)#.name`, `users.#(age>30)#.name`, "", ""},
 		{"typo after query", `users.#(age>30)#.nmae`, `users.#(age>30)#`, "nmae", ""},
+		{"genuine empty array resolves", "empty", "empty", "", ""},
+		{"fan-out typo over #", "users.#.nmae", "users.#", "nmae", ""},
+		{"empty query result resolves", `users.#(age>90)#`, `users.#(age>90)#`, "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

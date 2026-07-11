@@ -26,10 +26,12 @@ func Resolve(data, p string) Resolution {
 		if !r.Exists() {
 			continue
 		}
-		// If the last segment is a simple key on an array result, verify it's not empty.
-		// gjson returns an empty array when accessing non-existent fields on arrays,
-		// but we should treat that as unmatched.
-		if i > 0 && segs[i-1].Kind == path.KindKey && r.IsArray() && r.String() == "[]" {
+		// A plain key fanned out over an array query yields an empty array
+		// even when the key exists nowhere, so an empty fan-out result is
+		// treated as unmatched; a genuinely empty array (plain-key parent)
+		// is a valid resolution.
+		if i >= 2 && segs[i-1].Kind == path.KindKey && segs[i-2].Kind == path.KindAdvanced &&
+			r.IsArray() && len(r.Array()) == 0 {
 			continue
 		}
 		return Resolution{
