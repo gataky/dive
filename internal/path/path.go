@@ -10,7 +10,7 @@ type Kind int
 const (
 	KindKey      Kind = iota // plain object key (possibly with escapes)
 	KindIndex                // numeric array index, e.g. "0" or "-1"
-	KindAdvanced             // gjson-special: #, @modifier, wildcard, slice, query, multipath, pipe
+	KindAdvanced             // gjson-special: #, @modifier, wildcard, query, multipath, pipe
 )
 
 // Segment is one dot-separated component of a gjson path, escapes intact.
@@ -66,13 +66,20 @@ func Join(segs []Segment) string {
 	return strings.Join(parts, ".")
 }
 
-// EscapeKey escapes a raw object key for use as a path segment.
+// EscapeKey escapes a raw object key for use as a path segment. The
+// characters \ . * ? | are escaped everywhere; # @ { [ are only special to
+// gjson at the start of a segment, so they are escaped in leading position
+// only.
 func EscapeKey(key string) string {
 	var b strings.Builder
-	for _, r := range key {
+	for i, r := range key {
 		switch r {
 		case '\\', '.', '*', '?', '|':
 			b.WriteRune('\\')
+		case '#', '@', '{', '[':
+			if i == 0 {
+				b.WriteRune('\\')
+			}
 		}
 		b.WriteRune(r)
 	}
@@ -101,7 +108,7 @@ func classify(raw string) Kind {
 			escaped = false
 		case r == '\\':
 			escaped = true
-		case r == '*' || r == '?' || r == '|' || r == ':' || r == '(':
+		case r == '*' || r == '?' || r == '|':
 			return KindAdvanced
 		}
 	}

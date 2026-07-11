@@ -22,9 +22,12 @@ func TestSplit(t *testing.T) {
 		{"query with inner dots", `users.#(a.b=="x")#.name`, []Segment{{"users", KindKey}, {`#(a.b=="x")#`, KindAdvanced}, {"name", KindKey}}},
 		{"modifier", "users.@reverse", []Segment{{"users", KindKey}, {"@reverse", KindAdvanced}}},
 		{"wildcard", "data.*.value", []Segment{{"data", KindKey}, {"*", KindAdvanced}, {"value", KindKey}}},
-		{"slice", "users.0:3", []Segment{{"users", KindKey}, {"0:3", KindAdvanced}}},
+		{"colon key not special", "users.0:3", []Segment{{"users", KindKey}, {"0:3", KindKey}}},
 		{"pipe", "users.#.age|@reverse", []Segment{{"users", KindKey}, {"#", KindAdvanced}, {"age|@reverse", KindAdvanced}}},
 		{"multipath", "{name,age}", []Segment{{"{name,age}", KindAdvanced}}},
+		{"unclosed query", `users.#(a.b=="x"`, []Segment{{"users", KindKey}, {`#(a.b=="x"`, KindAdvanced}}},
+		{"trailing backslash", `trailing\`, []Segment{{`trailing\`, KindKey}}},
+		{"unicode keys", "café.名前", []Segment{{"café", KindKey}, {"名前", KindKey}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,10 +65,42 @@ func TestEscapeKey(t *testing.T) {
 		{"a?b", `a\?b`},
 		{"a|b", `a\|b`},
 		{`back\slash`, `back\\slash`},
+		{"og:title", "og:title"},
+		{"@type", `\@type`},
+		{"#tag", `\#tag`},
+		{"{brace", `\{brace`},
+		{"[bracket", `\[bracket`},
+		{"a(b)", "a(b)"},
 	}
 	for _, tt := range tests {
 		if got := EscapeKey(tt.in); got != tt.want {
 			t.Errorf("EscapeKey(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+// TestEscapeKeyClassifyRoundTrip asserts that any raw object key, once
+// escaped, splits back into exactly one plain-key segment. Purely numeric
+// keys ("0", "-1") are the exception: numeric object keys and array indices
+// are indistinguishable in a path, so they classify as KindIndex.
+func TestEscapeKeyClassifyRoundTrip(t *testing.T) {
+	keys := []string{
+		"name", "og:title", "@type", "#tag", "{brace", "[bracket",
+		"a(b)", "fav.movie", "a*b", "a?b", "a|b", `back\slash`, "café",
+		"0", "-1",
+	}
+	for _, k := range keys {
+		segs := Split(EscapeKey(k))
+		if len(segs) != 1 {
+			t.Errorf("Split(EscapeKey(%q)) = %v, want exactly one segment", k, segs)
+			continue
+		}
+		want := KindKey
+		if k == "0" || k == "-1" {
+			want = KindIndex
+		}
+		if segs[0].Kind != want {
+			t.Errorf("Split(EscapeKey(%q))[0].Kind = %v, want %v", k, segs[0].Kind, want)
 		}
 	}
 }
