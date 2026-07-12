@@ -22,16 +22,26 @@ type Theme struct {
 	// Message colors
 	ColorSuccess tcell.Color // Success message color
 	ColorError   tcell.Color // Error message color
+
+	// JSON syntax highlighting (tview markup color names)
+	JSONKey    string // object keys
+	JSONString string // string values
+	JSONNumber string // numbers
+	JSONBool   string // true/false
+	JSONNull   string // null
+
+	// SuggestHighlight is the fg:bg tview markup for the selected suggestion.
+	SuggestHighlight string
 }
 
 // DefaultTheme returns the default theme with terminal-friendly colors
 func DefaultTheme() *Theme {
 	return &Theme{
 		// Border colors
-		BorderFocused:   tcell.ColorDimGray,        // Subtle highlight for focused component
-		BorderUnfocused: tcell.ColorDarkSlateGray,  // Muted border for unfocused components
-		BorderValid:     tcell.ColorGreen,          // Green for valid input
-		BorderInvalid:   tcell.ColorRed,            // Red for invalid input
+		BorderFocused:   tcell.ColorDimGray,       // Subtle highlight for focused component
+		BorderUnfocused: tcell.ColorDarkSlateGray, // Muted border for unfocused components
+		BorderValid:     tcell.ColorGreen,         // Green for valid input
+		BorderInvalid:   tcell.ColorRed,           // Red for invalid input
 
 		// Background colors - use terminal defaults
 		Background:      tcell.ColorDefault,
@@ -45,6 +55,15 @@ func DefaultTheme() *Theme {
 		// Message colors
 		ColorSuccess: tcell.ColorGreen,
 		ColorError:   tcell.ColorRed,
+
+		// JSON syntax highlighting
+		JSONKey:    "aqua",
+		JSONString: "green",
+		JSONNumber: "yellow",
+		JSONBool:   "orange",
+		JSONNull:   "gray",
+
+		SuggestHighlight: "black:aqua",
 	}
 }
 
