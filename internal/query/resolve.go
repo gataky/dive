@@ -45,21 +45,27 @@ func Resolve(data, p string) Resolution {
 }
 
 // isEmptyFanoutArtifact reports whether candidate segs[:i] ends in a run
-// of plain keys following an advanced segment and r is an empty array.
-// gjson fans plain keys out over array-query results, yielding an empty
-// array even when the key exists nowhere, so such a result is treated as
-// unmatched rather than a valid resolution. A genuinely empty array (no
-// fan-out context) still resolves.
+// of plain keys and indexes following an advanced segment and r is an
+// empty array. gjson fans plain keys and indexes out over array-query
+// results, yielding an empty array even when the key exists nowhere, so
+// such a result is treated as unmatched rather than a valid resolution.
+// A genuinely empty array (no fan-out context) still resolves.
 func isEmptyFanoutArtifact(segs []path.Segment, i int, r gjson.Result) bool {
 	if !r.IsArray() || len(r.Array()) != 0 {
 		return false
 	}
-	if segs[i-1].Kind != path.KindKey {
+	if !fansOut(segs[i-1].Kind) {
 		return false
 	}
 	j := i - 1
-	for j >= 0 && segs[j].Kind == path.KindKey {
+	for j >= 0 && fansOut(segs[j].Kind) {
 		j--
 	}
 	return j >= 0 && segs[j].Kind == path.KindAdvanced
+}
+
+// fansOut reports whether a segment kind is applied element-wise when it
+// follows an array-producing segment (gjson fans both keys and indexes).
+func fansOut(k path.Kind) bool {
+	return k == path.KindKey || k == path.KindIndex
 }

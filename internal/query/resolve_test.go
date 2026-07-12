@@ -36,6 +36,8 @@ func TestResolve(t *testing.T) {
 		{"empty query result resolves", `users.#(age>90)#`, `users.#(age>90)#`, "", ""},
 		{"deep fan-out typo", "users.#.name.nmae", "users.#.name", "nmae", ""},
 		{"deep fan-out typo nested", "users.#.tags.zzz", "users.#.tags", "zzz", ""},
+		{"deep fan-out typo through index", "users.#.tags.0.zzz", "users.#.tags.0", "zzz", ""},
+		{"fan-out out-of-range index", "users.#.tags.9", "users.#.tags", "9", ""},
 		{"escaped key resolves", `fav\.movie`, `fav\.movie`, "", "Dune"},
 		{"escaped key typo", `fav\.novie`, "", `fav\.novie`, ""},
 	}
