@@ -8,7 +8,8 @@ const doc = `{
 		{"name": "Bob", "age": 35}
 	],
 	"company": {"name": "Acme", "founded": 2010},
-	"empty": []
+	"empty": [],
+	"fav.movie": "Dune"
 }`
 
 func TestResolve(t *testing.T) {
@@ -33,6 +34,10 @@ func TestResolve(t *testing.T) {
 		{"genuine empty array resolves", "empty", "empty", "", ""},
 		{"fan-out typo over #", "users.#.nmae", "users.#", "nmae", ""},
 		{"empty query result resolves", `users.#(age>90)#`, `users.#(age>90)#`, "", ""},
+		{"deep fan-out typo", "users.#.name.nmae", "users.#.name", "nmae", ""},
+		{"deep fan-out typo nested", "users.#.tags.zzz", "users.#.tags", "zzz", ""},
+		{"escaped key resolves", `fav\.movie`, `fav\.movie`, "", "Dune"},
+		{"escaped key typo", `fav\.novie`, "", `fav\.novie`, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,5 +55,21 @@ func TestResolve(t *testing.T) {
 				t.Error("Result must always exist (never blank)")
 			}
 		})
+	}
+}
+
+// TestResolveEmptyDocument pins the behavior for empty (invalid) input:
+// the fallback Result does not exist. Resolve documents that data must be
+// valid JSON; callers validate input at startup.
+func TestResolveEmptyDocument(t *testing.T) {
+	got := Resolve("", "foo")
+	if got.ResolvedPath != "" {
+		t.Errorf("ResolvedPath = %q, want %q", got.ResolvedPath, "")
+	}
+	if got.UnmatchedSuffix != "foo" {
+		t.Errorf("UnmatchedSuffix = %q, want %q", got.UnmatchedSuffix, "foo")
+	}
+	if got.Result.Exists() {
+		t.Error("Result.Exists() = true, want false for empty document")
 	}
 }

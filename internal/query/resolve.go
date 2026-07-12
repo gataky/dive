@@ -14,7 +14,9 @@ type Resolution struct {
 
 // Resolve finds the deepest valid ancestor of p in data. A trailing empty
 // segment (path ends in ".") means the user is mid-typing and does not
-// count as unmatched.
+// count as unmatched. data must be valid JSON — the application validates
+// input at startup. With empty or invalid data the fallback Result will
+// not Exist.
 func Resolve(data, p string) Resolution {
 	segs := path.Split(p)
 	if n := len(segs); n > 0 && segs[n-1].Raw == "" {
@@ -26,12 +28,7 @@ func Resolve(data, p string) Resolution {
 		if !r.Exists() {
 			continue
 		}
-		// A plain key fanned out over an array query yields an empty array
-		// even when the key exists nowhere, so an empty fan-out result is
-		// treated as unmatched; a genuinely empty array (plain-key parent)
-		// is a valid resolution.
-		if i >= 2 && segs[i-1].Kind == path.KindKey && segs[i-2].Kind == path.KindAdvanced &&
-			r.IsArray() && len(r.Array()) == 0 {
+		if isEmptyFanoutArtifact(segs, i, r) {
 			continue
 		}
 		return Resolution{
@@ -45,4 +42,24 @@ func Resolve(data, p string) Resolution {
 		UnmatchedSuffix: path.Join(segs),
 		Result:          gjson.Parse(data),
 	}
+}
+
+// isEmptyFanoutArtifact reports whether candidate segs[:i] ends in a run
+// of plain keys following an advanced segment and r is an empty array.
+// gjson fans plain keys out over array-query results, yielding an empty
+// array even when the key exists nowhere, so such a result is treated as
+// unmatched rather than a valid resolution. A genuinely empty array (no
+// fan-out context) still resolves.
+func isEmptyFanoutArtifact(segs []path.Segment, i int, r gjson.Result) bool {
+	if !r.IsArray() || len(r.Array()) != 0 {
+		return false
+	}
+	if segs[i-1].Kind != path.KindKey {
+		return false
+	}
+	j := i - 1
+	for j >= 0 && segs[j].Kind == path.KindKey {
+		j--
+	}
+	return j >= 0 && segs[j].Kind == path.KindAdvanced
 }
