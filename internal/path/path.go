@@ -86,6 +86,20 @@ func EscapeKey(key string) string {
 	return b.String()
 }
 
+// FanoutRun inspects the tail of segs: runLen counts trailing plain
+// key/index segments, and anchored reports whether the segment
+// immediately before that run is advanced. gjson fans plain keys and
+// indexes out element-wise over query/count results, so an anchored tail
+// means the whole run operates in fan-out context. runLen 0 with
+// anchored true means the last segment is itself advanced.
+func FanoutRun(segs []Segment) (runLen int, anchored bool) {
+	j := len(segs) - 1
+	for j >= 0 && (segs[j].Kind == KindKey || segs[j].Kind == KindIndex) {
+		j--
+	}
+	return len(segs) - 1 - j, j >= 0 && segs[j].Kind == KindAdvanced
+}
+
 func newSegment(raw string) Segment {
 	return Segment{Raw: raw, Kind: classify(raw)}
 }

@@ -79,6 +79,33 @@ func TestEscapeKey(t *testing.T) {
 	}
 }
 
+func TestFanoutRun(t *testing.T) {
+	tests := []struct {
+		name         string
+		in           string
+		wantRunLen   int
+		wantAnchored bool
+	}{
+		{"empty", "", 0, false},
+		{"single key", "users", 1, false},
+		{"count tail", "users.#", 0, true},
+		{"key after count", "users.#.name", 1, true},
+		{"key and index after count", "users.#.name.0", 2, true},
+		{"query tail", `users.#(age>20)#`, 0, true},
+		{"plain keys and index only", "users.0.name", 3, false},
+		{"modifier tail", "users.#.name.@reverse", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runLen, anchored := FanoutRun(Split(tt.in))
+			if runLen != tt.wantRunLen || anchored != tt.wantAnchored {
+				t.Errorf("FanoutRun(Split(%q)) = (%d, %v), want (%d, %v)",
+					tt.in, runLen, anchored, tt.wantRunLen, tt.wantAnchored)
+			}
+		})
+	}
+}
+
 // TestEscapeKeyClassifyRoundTrip asserts that any raw object key, once
 // escaped, splits back into exactly one plain-key segment. Purely numeric
 // keys ("0", "-1") are the exception: numeric object keys and array indices

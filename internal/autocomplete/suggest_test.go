@@ -112,6 +112,24 @@ func TestSuggestAdvancedSegmentDegrades(t *testing.T) {
 	}
 }
 
+func TestSuggestFanoutThroughKeys(t *testing.T) {
+	// fan-out persists through plain key/index segments, so indices into
+	// "users.#.name" must still pipe-join to actually resolve
+	got := Suggest(doc, "users.#.name.")
+	if len(got) != 12 {
+		t.Fatalf("got %d suggestions, want 12", len(got))
+	}
+	if got[0].Full != "users.#.name|0" {
+		t.Errorf("got[0].Full = %q, want %q", got[0].Full, "users.#.name|0")
+	}
+	if v := gjson.Get(doc, got[0].Full).String(); v != "Alice" {
+		t.Errorf("suggestion %q resolves to %q, want Alice", got[0].Full, v)
+	}
+	if got[11].Full != "users.#.name|11" {
+		t.Errorf("got[11].Full = %q, want %q", got[11].Full, "users.#.name|11")
+	}
+}
+
 func TestSuggestPrimitiveParent(t *testing.T) {
 	if got := Suggest(doc, "company.name."); got != nil {
 		t.Errorf("primitive parent should give nil, got %v", got)

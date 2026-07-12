@@ -67,10 +67,10 @@ func Suggest(data, text string) []Suggestion {
 
 	// Indexing into a query/fan-out result only works through gjson's
 	// pipe: "a.#(q)#.0" yields an empty artifact, "a.#(q)#|0" the element.
+	// Fan-out persists through trailing plain key/index segments, so
+	// anchoring is decided over the whole parent tail via path.FanoutRun.
 	sep := "."
-	if len(parentSegs) > 0 &&
-		parentSegs[len(parentSegs)-1].Kind == path.KindAdvanced &&
-		parent.IsArray() {
+	if _, anchored := path.FanoutRun(parentSegs); anchored && parent.IsArray() {
 		sep = "|"
 	}
 
