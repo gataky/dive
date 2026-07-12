@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gataky/dive/internal/ui/theme"
+	"github.com/rivo/tview"
 	"github.com/tidwall/gjson"
 )
 
@@ -51,9 +52,71 @@ func TestColorizeEscapesMarkupInContent(t *testing.T) {
 	th := theme.DefaultTheme()
 	r := gjson.Parse(`{"note":"[red]danger[-]"}`)
 	got := Colorize(r, th)
-	// tview.Escape turns [tag] into [tag[] so it renders literally
-	if !strings.Contains(got, "[red[]") || !strings.Contains(got, "[-[]") {
-		t.Errorf("document content not escaped:\n%s", got)
+	// A zero-width space (U+200B) after "[" makes it an invalid tag start,
+	// so the content renders literally instead of being parsed as markup.
+	if !strings.Contains(got, "[​red]danger[​-]") {
+		t.Errorf("document content not neutralized with ZWSP:\n%s", got)
+	}
+	if strings.Contains(got, "[red]danger") {
+		t.Errorf("raw markup leaked into output:\n%s", got)
+	}
+}
+
+// drawn runs markup through tview's real dynamic-color parser (the same one
+// used when drawing) and returns the visible text, with the zero-width
+// spaces we inject stripped so assertions compare plain content.
+func drawn(markup string) string {
+	tv := tview.NewTextView().SetDynamicColors(true)
+	tv.SetText(markup)
+	return strings.ReplaceAll(tv.GetText(true), "​", "")
+}
+
+// TestColorizeDrawnFaithfully is a regression test for unclosed tview tags:
+// a "[:::" URL-tag prefix in document content would otherwise open a
+// consume-until-"]" state and swallow everything up to our own next "]".
+func TestColorizeDrawnFaithfully(t *testing.T) {
+	th := theme.DefaultTheme()
+	docs := []string{
+		`{"a":"[:::HIDDEN","b":"visible"}`,
+		`{"[:::key":"v"}`,
+		`{"trail":"end["}`,
+		`{"tag":"[red]x[-]"}`,
+	}
+	for _, doc := range docs {
+		got := drawn(Colorize(gjson.Parse(doc), th))
+		for _, want := range []string{"HIDDEN", "visible", "[:::", "end[", "[red]x[-]"} {
+			if strings.Contains(doc, want) && !strings.Contains(got, want) {
+				t.Errorf("doc %s: drawn output lost %q:\n%s", doc, want, got)
+			}
+		}
+	}
+}
+
+func TestColorizeDeepNestingIndentation(t *testing.T) {
+	th := theme.DefaultTheme()
+	got := Colorize(gjson.Parse(`{"a":{"b":{"c":[1]}}}`), th)
+	want := "{\n" +
+		"  [" + th.JSONKey + `]"a"[-]: {` + "\n" +
+		"    [" + th.JSONKey + `]"b"[-]: {` + "\n" +
+		"      [" + th.JSONKey + `]"c"[-]: [` + "\n" +
+		"        [" + th.JSONNumber + "]1[-]\n" +
+		"      ]\n" +
+		"    }\n" +
+		"  }\n" +
+		"}"
+	if got != want {
+		t.Errorf("deep nesting output mismatch\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestColorizeUnicode(t *testing.T) {
+	th := theme.DefaultTheme()
+	got := Colorize(gjson.Parse(`{"名前":"café"}`), th)
+	if !strings.Contains(got, `"名前"`) {
+		t.Errorf("unicode key missing from output:\n%s", got)
+	}
+	if !strings.Contains(got, `"café"`) {
+		t.Errorf("unicode value missing from output:\n%s", got)
 	}
 }
 

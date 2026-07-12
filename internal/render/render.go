@@ -8,12 +8,21 @@ import (
 	"strings"
 
 	"github.com/gataky/dive/internal/ui/theme"
-	"github.com/rivo/tview"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/pretty"
 )
 
 const indentStep = "  "
+
+// escapeContent neutralizes tview markup in document content. tview.Escape
+// only handles complete [...] tags; an unclosed "[:::" URL-tag prefix would
+// swallow everything up to the next "]" we emit ourselves (verified against
+// tview v0.42). A zero-width space after every "[" makes it an invalid tag
+// start, so all content draws literally with no visible change. Display
+// only — the export path (Pretty) never passes through here.
+func escapeContent(s string) string {
+	return strings.ReplaceAll(s, "[", "[​")
+}
 
 // Pretty returns plain indented JSON for result, preserving key order.
 func Pretty(result gjson.Result) string {
@@ -44,7 +53,7 @@ func writeValue(b *strings.Builder, v gjson.Result, th *theme.Theme, depth int) 
 			}
 			first = false
 			b.WriteString("\n" + indent + indentStep)
-			fmt.Fprintf(b, "[%s]%s[-]: ", th.JSONKey, tview.Escape(strconv.Quote(key.String())))
+			fmt.Fprintf(b, "[%s]%s[-]: ", th.JSONKey, escapeContent(strconv.Quote(key.String())))
 			writeValue(b, value, th, depth+1)
 			return true
 		})
@@ -80,6 +89,6 @@ func writeValue(b *strings.Builder, v gjson.Result, th *theme.Theme, depth int) 
 		default:
 			color = th.JSONNull
 		}
-		fmt.Fprintf(b, "[%s]%s[-]", color, tview.Escape(v.Raw))
+		fmt.Fprintf(b, "[%s]%s[-]", color, escapeContent(v.Raw))
 	}
 }
