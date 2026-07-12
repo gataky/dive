@@ -43,6 +43,13 @@ func TestSuggestPrefixFilter(t *testing.T) {
 	if got[0].Display != "name" || got[1].Display != "nationality" {
 		t.Errorf("Display labels = %q, %q; want key names", got[0].Display, got[1].Display)
 	}
+	got = Suggest(doc, "fav")
+	if len(got) != 1 || got[0].Full != `fav\.movie` {
+		t.Fatalf("Suggest(\"fav\") = %v, want [fav\\.movie]", fulls(got))
+	}
+	if got[0].Display != "fav.movie" {
+		t.Errorf("Display = %q, want unescaped %q", got[0].Display, "fav.movie")
+	}
 }
 
 func TestSuggestTrailingDot(t *testing.T) {
@@ -76,6 +83,11 @@ func TestSuggestionsResolve(t *testing.T) {
 			t.Errorf("suggestion %q does not resolve", s.Full)
 		}
 	}
+	for _, s := range Suggest(doc, "users.#(age>20)#.") {
+		if !gjson.Get(doc, s.Full).Exists() {
+			t.Errorf("suggestion %q does not resolve", s.Full)
+		}
+	}
 }
 
 func TestSuggestInvalidParent(t *testing.T) {
@@ -88,10 +100,15 @@ func TestSuggestAdvancedSegmentDegrades(t *testing.T) {
 	if got := Suggest(doc, "users.#(age>2"); got != nil {
 		t.Errorf("advanced partial should give nil, got %v", got)
 	}
-	// but a *parent* that is an advanced query still enumerates its result
+	// but a *parent* that is an advanced query still enumerates its result,
+	// joined with "|" so the index actually applies to the query result
 	got := Suggest(doc, "users.#(age>20)#.")
-	if len(got) == 0 {
-		t.Error("expected index suggestions under advanced parent")
+	want := []string{"users.#(age>20)#|0"}
+	if !reflect.DeepEqual(fulls(got), want) {
+		t.Fatalf("got %v, want %v", fulls(got), want)
+	}
+	if name := gjson.Get(doc, got[0].Full).Get("name").String(); name != "Alice" {
+		t.Errorf("suggestion %q resolves to name %q, want Alice", got[0].Full, name)
 	}
 }
 

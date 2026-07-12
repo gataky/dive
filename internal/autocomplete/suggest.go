@@ -17,6 +17,9 @@ type Suggestion struct {
 // Suggest returns completions for the last path segment of text. It
 // returns nil when the parent path is invalid, the parent is a
 // primitive, or the segment being typed uses advanced gjson syntax.
+// Note that a key containing a literal dot (e.g. "fav.movie") is only
+// completed while the user types its escaped form ("fav\."); typing the
+// unescaped dot parses as a separator and suggestions go blank.
 func Suggest(data, text string) []Suggestion {
 	segs := path.Split(text)
 	partial := ""
@@ -41,31 +44,46 @@ func Suggest(data, text string) []Suggestion {
 		return nil
 	}
 
-	var keys []string
+	type candidate struct {
+		key     string // escaped path segment
+		display string // unescaped label
+	}
+	var cands []candidate
 	switch {
 	case parent.IsObject():
 		parent.ForEach(func(key, _ gjson.Result) bool {
-			keys = append(keys, path.EscapeKey(key.String()))
+			raw := key.String()
+			cands = append(cands, candidate{key: path.EscapeKey(raw), display: raw})
 			return true
 		})
 	case parent.IsArray():
 		for i := range parent.Array() {
-			keys = append(keys, strconv.Itoa(i))
+			idx := strconv.Itoa(i)
+			cands = append(cands, candidate{key: idx, display: idx})
 		}
 	default:
 		return nil
 	}
 
+	// Indexing into a query/fan-out result only works through gjson's
+	// pipe: "a.#(q)#.0" yields an empty artifact, "a.#(q)#|0" the element.
+	sep := "."
+	if len(parentSegs) > 0 &&
+		parentSegs[len(parentSegs)-1].Kind == path.KindAdvanced &&
+		parent.IsArray() {
+		sep = "|"
+	}
+
 	var out []Suggestion
-	for _, k := range keys {
-		if !strings.HasPrefix(k, partial) {
+	for _, c := range cands {
+		if !strings.HasPrefix(c.key, partial) {
 			continue
 		}
-		full := k
+		full := c.key
 		if parentPath != "" {
-			full = parentPath + "." + k
+			full = parentPath + sep + c.key
 		}
-		out = append(out, Suggestion{Full: full, Display: k})
+		out = append(out, Suggestion{Full: full, Display: c.display})
 	}
 	return out
 }
