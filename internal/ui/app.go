@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gataky/dive/internal/autocomplete"
@@ -44,6 +45,9 @@ type App struct {
 	settingText bool                      // guards cycle-driven SetText calls
 	helpVisible bool
 	plainOutput string // uncolored JSON currently displayed, for copy/save
+
+	stopped  chan struct{} // closed by Stop(); unblocks pending flash timers
+	stopOnce sync.Once
 }
 
 // NewApp creates the application for the given JSON document.
@@ -52,6 +56,7 @@ func NewApp(jsonData string) *App {
 		tviewApp: tview.NewApplication(),
 		theme:    theme.DefaultTheme(),
 		data:     jsonData,
+		stopped:  make(chan struct{}),
 	}
 
 	a.inputField = createInputField(a.theme)
@@ -73,7 +78,10 @@ func NewApp(jsonData string) *App {
 	// returns tview's pre-layout default box size, not the terminal
 	// width. Queue a one-shot redraw for right after that first draw so
 	// the initial suggestions list reflects the real terminal width
-	// instead of being spuriously truncated.
+	// instead of being spuriously truncated. Note this goroutine blocks
+	// until Run() services the update queue, so constructing an App
+	// without ever calling Run() leaks it; acceptable for this CLI's
+	// NewApp→Run lifecycle.
 	go a.tviewApp.QueueUpdateDraw(a.drawSuggestions)
 
 	return a
@@ -228,6 +236,11 @@ func (a *App) bindKeys() {
 	})
 
 	a.saveInput.SetDoneFunc(func(key tcell.Key) {
+		// tview fires the done func for Tab/Backtab too; those must not
+		// dismiss the dialog.
+		if key == tcell.KeyTab || key == tcell.KeyBacktab {
+			return
+		}
 		if key == tcell.KeyEnter {
 			if name := a.saveInput.GetText(); name != "" {
 				if err := export.SaveToFile(a.plainOutput, name); err != nil {
@@ -242,10 +255,23 @@ func (a *App) bindKeys() {
 	})
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Quit always works, even with the save dialog up.
 		switch event.Key() {
 		case tcell.KeyCtrlQ, tcell.KeyCtrlC:
-			a.tviewApp.Stop()
+			a.Stop()
 			return nil
+		}
+
+		// While the save dialog is up, the other global hotkeys must not
+		// fire (Ctrl+O/F1 would move focus or resize panels underneath
+		// the still-visible dialog, leaving it stuck with nothing focused
+		// to dismiss it). Pass events through so only the save input's
+		// own handling applies.
+		if name, _ := a.pages.GetFrontPage(); name == "save" {
+			return event
+		}
+
+		switch event.Key() {
 		case tcell.KeyCtrlY:
 			a.copyOutput()
 			return nil
@@ -294,7 +320,19 @@ func (a *App) flashMessage(msg string, isErr bool) {
 	}
 	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, render.EscapeContent(msg)))
 	go func() {
-		time.Sleep(3 * time.Second)
+		select {
+		case <-time.After(3 * time.Second):
+		case <-a.stopped:
+			return // app stopped; QueueUpdateDraw would block forever
+		}
+		// Re-check after the timer: Stop may have raced it. A residual
+		// microsecond window remains (Stop between this check and the
+		// queue send); process exit reclaims the goroutine in that case.
+		select {
+		case <-a.stopped:
+			return
+		default:
+		}
 		a.tviewApp.QueueUpdateDraw(func() {
 			a.footer.SetText(footerText)
 		})
@@ -306,7 +344,8 @@ func (a *App) Run() error {
 	return a.tviewApp.Run()
 }
 
-// Stop stops the application.
+// Stop stops the application and releases any pending flash timers.
 func (a *App) Stop() {
+	a.stopOnce.Do(func() { close(a.stopped) })
 	a.tviewApp.Stop()
 }

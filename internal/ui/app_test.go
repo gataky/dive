@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 // newTestApp builds an App wired to a SimulationScreen and starts it
@@ -125,6 +126,22 @@ func suggestionsText(app *App) string {
 
 func suggestionCount(app *App) int {
 	return syncCall(app, func() int { return len(app.suggestions) })
+}
+
+func frontPage(app *App) string {
+	return syncCall(app, func() string {
+		name, _ := app.pages.GetFrontPage()
+		return name
+	})
+}
+
+// focusIs reports whether the application focus is exactly p.
+func focusIs(app *App, p tview.Primitive) bool {
+	return syncCall(app, func() bool { return app.tviewApp.GetFocus() == p })
+}
+
+func footerTextNow(app *App) string {
+	return syncCall(app, func() string { return app.footer.GetText(false) })
 }
 
 const testDoc = `{"users":[{"name":"Ada","nationality":"US"}],"empty":{}}`
@@ -268,4 +285,112 @@ func TestApp_TabNoOpWithoutSuggestions(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+}
+
+func TestApp_SaveOverlayGatesGlobalHotkeys(t *testing.T) {
+	app, cleanup := newTestApp(t, testDoc)
+	defer cleanup()
+
+	// Open the save dialog.
+	pressKey(app, tcell.KeyCtrlS)
+	waitFor(t, func() bool {
+		return frontPage(app) == "save" && focusIs(app, app.saveInput)
+	})
+
+	// Ctrl+O must NOT steal focus to the output panel while the save
+	// dialog is up — the dialog would be stuck with no way to dismiss it.
+	pressKey(app, tcell.KeyCtrlO)
+
+	// Negative assertion: poll briefly, the overlay and focus must not move.
+	deadline := time.Now().Add(300 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if got := frontPage(app); got != "save" {
+			t.Fatalf("Ctrl+O while save dialog open: front page changed to %q", got)
+		}
+		if !focusIs(app, app.saveInput) {
+			t.Fatal("Ctrl+O while save dialog open: focus left the save input")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Escape dismisses the dialog and returns focus to the query input.
+	pressKey(app, tcell.KeyEscape)
+	waitFor(t, func() bool {
+		return frontPage(app) == "main" && focusIs(app, app.inputField)
+	})
+}
+
+func TestApp_SaveOverlayTabDoesNotDismiss(t *testing.T) {
+	app, cleanup := newTestApp(t, testDoc)
+	defer cleanup()
+
+	pressKey(app, tcell.KeyCtrlS)
+	waitFor(t, func() bool {
+		return frontPage(app) == "save"
+	})
+
+	// Tab in the filename field must not cancel the dialog (tview fires
+	// an InputField's done func for Tab/Backtab as well as Enter/Escape).
+	pressKey(app, tcell.KeyTab)
+
+	deadline := time.Now().Add(300 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if got := frontPage(app); got != "save" {
+			t.Fatalf("Tab in save dialog dismissed it: front page is %q", got)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	pressKey(app, tcell.KeyEscape)
+	waitFor(t, func() bool {
+		return frontPage(app) == "main"
+	})
+}
+
+func TestApp_HelpToggle(t *testing.T) {
+	app, cleanup := newTestApp(t, testDoc)
+	defer cleanup()
+
+	// F1 shows the help panel (nonzero width after relayout) and
+	// focuses it.
+	pressKey(app, tcell.KeyF1)
+	waitFor(t, func() bool {
+		return syncCall(app, func() bool {
+			if !app.helpVisible || app.tviewApp.GetFocus() != app.helpPanel {
+				return false
+			}
+			_, _, w, _ := app.helpPanel.GetRect()
+			return w > 0
+		})
+	})
+
+	// Escape hides it (zero width) and returns focus to the input field.
+	pressKey(app, tcell.KeyEscape)
+	waitFor(t, func() bool {
+		return syncCall(app, func() bool {
+			if app.helpVisible || app.tviewApp.GetFocus() != app.inputField {
+				return false
+			}
+			_, _, w, _ := app.helpPanel.GetRect()
+			return w == 0
+		})
+	})
+}
+
+func TestApp_CtrlYFlashesFooter(t *testing.T) {
+	app, cleanup := newTestApp(t, testDoc)
+	defer cleanup()
+
+	if got := footerTextNow(app); got != footerText {
+		t.Fatalf("precondition: footer should show key hints, got %q", got)
+	}
+
+	// Ctrl+Y attempts a clipboard copy. In a headless environment the
+	// copy may fail, so assert only that the footer flashes SOMETHING —
+	// either "Copied to clipboard!" or an error — i.e. it differs from
+	// the default key-hint text.
+	pressKey(app, tcell.KeyCtrlY)
+	waitFor(t, func() bool {
+		return footerTextNow(app) != footerText
+	})
 }
