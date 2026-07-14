@@ -7,21 +7,13 @@ import (
 	"github.com/gataky/dive/internal/autocomplete"
 	"github.com/gataky/dive/internal/export"
 	"github.com/gataky/dive/internal/query"
+	"github.com/gataky/dive/internal/render"
 	"github.com/gataky/dive/internal/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-// FocusableComponent represents which component currently has focus
-type FocusableComponent int
-
-const (
-	FocusNone FocusableComponent = iota
-	FocusInputField
-	FocusDropdown
-	FocusOutputPanel
-	FocusHelpPanel
-)
+const footerText = "[white::b]Tab[::-]: Complete | [white::b]F1[::-]: Help | [white::b]Ctrl+O[::-]: Output | [white::b]Ctrl+Y[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit"
 
 func init() {
 	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
@@ -32,200 +24,239 @@ func init() {
 	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
 }
 
-// App represents the main application UI
+// App wires the fixed layout to the query/suggest/render pipeline.
 type App struct {
-	tviewApp             *tview.Application
-	layout               *tview.Flex
-	inputField           *tview.InputField
-	outputPanel          *tview.TextView
-	footer               *tview.TextView
-	autocompleteDropdown *tview.List
-	helpPanel            *tview.TextView
-	saveModal            *tview.InputField
-	theme                *theme.Theme
-	focusedComponent     FocusableComponent
-	jsonData             string
-	currentQuery         string
-	queryEngine          *query.Engine
-	dropdownVisible      bool
-	helpPanelVisible     bool
-	focusBeforeHelp      FocusableComponent
-	originalFooterText   string
+	tviewApp *tview.Application
+	pages    *tview.Pages
+	outer    *tview.Flex // main column + help panel
+	theme    *theme.Theme
+
+	inputField     *tview.InputField
+	suggestionsBar *tview.TextView
+	outputPanel    *tview.TextView
+	footer         *tview.TextView
+	helpPanel      *tview.TextView
+	saveInput      *tview.InputField
+
+	data        string                    // the JSON document
+	suggestions []autocomplete.Suggestion // candidates for the current text
+	cycle       *autocomplete.CycleState  // nil when not Tab-cycling
+	settingText bool                      // guards cycle-driven SetText calls
+	helpVisible bool
+	plainOutput string // uncolored JSON currently displayed, for copy/save
 }
 
-// NewApp creates and initializes a new tview application with all UI components
+// NewApp creates the application for the given JSON document.
 func NewApp(jsonData string) *App {
-	app := &App{
-		tviewApp:           tview.NewApplication(),
-		theme:              theme.DefaultTheme(),
-		jsonData:           jsonData,
-		queryEngine:        query.NewEngine(jsonData),
-		originalFooterText: "[white::b]Tab[::-]: Autocomplete | [white::b]F1[::-]: Help | [white::b]Ctrl+O[::-]: Focus Output | [white::b]Ctrl+C[::-]: Copy | [white::b]Ctrl+S[::-]: Save | [white::b]Ctrl+Q[::-]: Quit",
+	a := &App{
+		tviewApp: tview.NewApplication(),
+		theme:    theme.DefaultTheme(),
+		data:     jsonData,
 	}
 
-	app.initComponents()
-	app.setupLayout()
-	app.setupKeyBindings()
-	app.setupInputFieldKeyBindings()
-	app.setupOutputPanelKeyBindings()
-	app.setupHelpPanelKeyBindings()
-	app.setupQueryCallbacks()
-	app.setupFocusHandlers()
-
-	// Set the json data so it shows up on startup
-	result := app.queryEngine.Query(jsonData)
-	app.outputPanel.SetText(result.Value)
-
-	// Set initial focus state to match the initially focused component
-	app.focusedComponent = FocusInputField
-	app.inputField.SetBorderColor(app.theme.BorderFocused)
-
-	return app
-}
-
-// initComponents initializes all UI components
-func (a *App) initComponents() {
 	a.inputField = createInputField(a.theme)
+	a.suggestionsBar = createSuggestionsBar(a.theme)
 	a.outputPanel = createOutputPanel(a.theme)
 	a.footer = createFooter(a.theme)
-	a.autocompleteDropdown = createAutocompleteDropdown(a.theme)
 	a.helpPanel = createHelpPanel(a.theme)
+	a.saveInput = createSaveInput(a.theme)
+
+	a.buildLayout()
+	a.bindKeys()
+
+	a.refreshSuggestions()
+	a.refreshOutput()
+
+	// The suggestions bar's real width isn't known until it has been
+	// through a layout pass, which only happens once Run() performs its
+	// first draw against the actual screen; until then GetInnerRect
+	// returns tview's pre-layout default box size, not the terminal
+	// width. Queue a one-shot redraw for right after that first draw so
+	// the initial suggestions list reflects the real terminal width
+	// instead of being spuriously truncated.
+	go a.tviewApp.QueueUpdateDraw(a.drawSuggestions)
+
+	return a
 }
 
-// setupLayout arranges all components in a vertical flex layout
-func (a *App) setupLayout() {
-	a.layout = tview.NewFlex().
-		SetDirection(tview.FlexRow).
+// buildLayout assembles the fixed layout. Nothing is ever added to or
+// removed from it afterwards: the help panel hides via zero-width resize
+// and the save dialog is a Pages overlay.
+func (a *App) buildLayout() {
+	main := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.inputField, 3, 0, true).
+		AddItem(a.suggestionsBar, 1, 0, false).
 		AddItem(a.outputPanel, 0, 1, false).
 		AddItem(a.footer, 1, 0, false)
 
-	a.tviewApp.SetRoot(a.layout, true)
+	a.outer = tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(main, 0, 1, true).
+		AddItem(a.helpPanel, 0, 0, false) // hidden until F1
 
-	// Set initial focus to the input field
+	saveOverlay := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(nil, 0, 1, false).
+			AddItem(a.saveInput, 60, 0, true).
+			AddItem(nil, 0, 1, false), 3, 0, true).
+		AddItem(nil, 0, 1, false)
+
+	a.pages = tview.NewPages().
+		AddPage("main", a.outer, true, true).
+		AddPage("save", saveOverlay, true, false)
+
+	a.tviewApp.SetRoot(a.pages, true)
 	a.tviewApp.SetFocus(a.inputField)
 }
 
-// showDropdown displays the autocomplete dropdown below the input field
-func (a *App) showDropdown(suggestions []string) {
-	if len(suggestions) == 0 {
-		a.hideDropdown()
+// onTextChanged handles user edits (not cycle-driven SetText calls):
+// any real edit ends the cycle and recomputes suggestions and output.
+func (a *App) onTextChanged(text string) {
+	if a.settingText {
 		return
 	}
+	a.cycle = nil
+	a.refreshSuggestions()
+	a.refreshOutput()
+}
 
-	// Clear existing items
-	a.autocompleteDropdown.Clear()
+// refreshSuggestions recomputes candidates for the current text.
+func (a *App) refreshSuggestions() {
+	a.suggestions = autocomplete.Suggest(a.data, a.inputField.GetText())
+	a.drawSuggestions()
+}
 
-	// Add suggestions to the dropdown
-	for _, suggestion := range suggestions {
-		// Capture suggestion in the closure
-		s := suggestion
-		a.autocompleteDropdown.AddItem(s, "", 0, func() {
-			// Handle Enter key to select a suggestion (task 5.11)
-			a.selectSuggestion(s)
-		})
+// drawSuggestions redraws the bar from current candidates + cycle state.
+func (a *App) drawSuggestions() {
+	selected := -1
+	if a.cycle != nil {
+		selected = a.cycle.Selected()
 	}
+	_, _, width, _ := a.suggestionsBar.GetInnerRect()
+	if width <= 0 {
+		width = 80 // before first draw
+	}
+	a.suggestionsBar.SetText(formatSuggestions(a.suggestions, selected, width, a.theme))
+}
 
-	// Set up input capture for the dropdown to handle Escape and navigation
-	a.autocompleteDropdown.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		currentItem := a.autocompleteDropdown.GetCurrentItem()
-		itemCount := a.autocompleteDropdown.GetItemCount()
+// refreshOutput resolves the current path to its deepest valid ancestor
+// and renders it. The output panel title names what is shown; the input
+// border goes red when part of the path didn't match.
+func (a *App) refreshOutput() {
+	res := query.Resolve(a.data, a.inputField.GetText())
+	a.plainOutput = render.Pretty(res.Result)
+	a.outputPanel.SetText(render.Colorize(res.Result, a.theme))
+	a.outputPanel.ScrollToBeginning()
 
+	shown := res.ResolvedPath
+	if shown == "" {
+		shown = "(root)"
+	}
+	if res.UnmatchedSuffix == "" {
+		a.outputPanel.SetTitle(" " + render.EscapeContent(shown) + " ")
+		a.inputField.SetBorderColor(a.theme.BorderFocused)
+	} else {
+		a.outputPanel.SetTitle(fmt.Sprintf(" %s ✗ %s ", render.EscapeContent(shown), render.EscapeContent(res.UnmatchedSuffix)))
+		a.inputField.SetBorderColor(a.theme.BorderInvalid)
+	}
+}
+
+// setTextFromCycle updates the input without resetting the cycle.
+func (a *App) setTextFromCycle(text string) {
+	a.settingText = true
+	a.inputField.SetText(text)
+	a.settingText = false
+}
+
+// cycleSuggestion advances (or rewinds) Tab-cycling. The originally
+// typed text is position 0 of the cycle.
+func (a *App) cycleSuggestion(forward bool) {
+	if a.cycle == nil {
+		if len(a.suggestions) == 0 {
+			return
+		}
+		a.cycle = autocomplete.NewCycleState(a.inputField.GetText(), a.suggestions)
+	}
+	var text string
+	if forward {
+		text = a.cycle.Next()
+	} else {
+		text = a.cycle.Prev()
+	}
+	a.setTextFromCycle(text)
+	a.drawSuggestions()
+	a.refreshOutput()
+}
+
+func (a *App) bindKeys() {
+	a.inputField.SetChangedFunc(a.onTextChanged)
+
+	a.inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
+		case tcell.KeyTab, tcell.KeyBacktab:
+			a.cycleSuggestion(event.Key() == tcell.KeyTab)
+			return nil
 		case tcell.KeyEscape:
-			// Hide dropdown and return focus to input field
-			a.hideDropdown()
-			return nil
-		case tcell.KeyTab:
-			// Move to next item, wrap to top if at bottom
-			if currentItem < itemCount-1 {
-				a.autocompleteDropdown.SetCurrentItem(currentItem + 1)
-			} else {
-				a.autocompleteDropdown.SetCurrentItem(0)
+			if a.cycle != nil {
+				a.setTextFromCycle(a.cycle.Base())
+				a.cycle = nil
+				a.drawSuggestions()
+				a.refreshOutput()
 			}
 			return nil
-		case tcell.KeyBacktab:
-			// Move to previous item (Shift+Tab), wrap to bottom if at top
-			if currentItem > 0 {
-				a.autocompleteDropdown.SetCurrentItem(currentItem - 1)
-			} else {
-				a.autocompleteDropdown.SetCurrentItem(itemCount - 1)
-			}
-			return nil
-		case tcell.KeyUp:
-			// If at the top of the list, return to input field
-			if currentItem == 0 {
-				a.tviewApp.SetFocus(a.inputField)
-				return nil
-			}
 		}
 		return event
 	})
 
-	// Update layout to show dropdown if not already visible
-	if !a.dropdownVisible {
-		a.dropdownVisible = true
-		// Rebuild layout with dropdown
-		a.layout.Clear()
-		a.layout.AddItem(a.inputField, 3, 0, true)
-		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false) // Show dropdown with height of 8
-		a.layout.AddItem(a.outputPanel, 0, 1, false)
-		a.layout.AddItem(a.footer, 1, 0, false)
-	}
-}
+	a.outputPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape ||
+			(event.Key() == tcell.KeyRune && (event.Rune() == 'i' || event.Rune() == 'I')) {
+			a.tviewApp.SetFocus(a.inputField)
+			return nil
+		}
+		return event
+	})
+	a.outputPanel.SetFocusFunc(func() { a.outputPanel.SetBorderColor(a.theme.BorderFocused) })
+	a.outputPanel.SetBlurFunc(func() { a.outputPanel.SetBorderColor(a.theme.BorderUnfocused) })
 
-// selectSuggestion updates the input field with the selected suggestion
-func (a *App) selectSuggestion(suggestion string) {
-	a.inputField.SetText(suggestion)
-	a.hideDropdown()
-}
+	a.helpPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			a.toggleHelp()
+			return nil
+		}
+		return event
+	})
 
-// hideDropdown hides the autocomplete dropdown
-func (a *App) hideDropdown() {
-	if !a.dropdownVisible {
-		return
-	}
+	a.saveInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			if name := a.saveInput.GetText(); name != "" {
+				if err := export.SaveToFile(a.plainOutput, name); err != nil {
+					a.flashMessage(fmt.Sprintf("Error: %v", err), true)
+				} else {
+					a.flashMessage("Saved to "+name, false)
+				}
+			}
+		}
+		a.pages.HidePage("save")
+		a.tviewApp.SetFocus(a.inputField)
+	})
 
-	a.dropdownVisible = false
-	// Rebuild layout without dropdown
-	a.layout.Clear()
-	a.layout.AddItem(a.inputField, 3, 0, true)
-	a.layout.AddItem(a.outputPanel, 0, 1, false)
-	a.layout.AddItem(a.footer, 1, 0, false)
-
-	// Restore focus to input field
-	a.tviewApp.SetFocus(a.inputField)
-}
-
-// updateSuggestions gets autocomplete suggestions for the current path and shows dropdown
-func (a *App) updateSuggestions() {
-	currentPath := a.inputField.GetText()
-	suggestions := autocomplete.GetSuggestions(a.jsonData, currentPath)
-	a.showDropdown(suggestions)
-}
-
-// setupKeyBindings configures global key bindings
-func (a *App) setupKeyBindings() {
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyCtrlQ:
-			// Quit the application
+		case tcell.KeyCtrlQ, tcell.KeyCtrlC:
 			a.tviewApp.Stop()
 			return nil
-		case tcell.KeyCtrlC:
-			// Copy current output to clipboard (task 6.7)
-			a.copyToClipboard()
+		case tcell.KeyCtrlY:
+			a.copyOutput()
 			return nil
 		case tcell.KeyCtrlS:
-			// Open save dialog (task 6.8)
-			a.showSaveDialog()
+			a.pages.ShowPage("save")
+			a.tviewApp.SetFocus(a.saveInput)
 			return nil
 		case tcell.KeyF1:
-			// Toggle help panel
-			a.toggleHelpPanel()
+			a.toggleHelp()
 			return nil
 		case tcell.KeyCtrlO:
-			// Focus on output panel for scrolling
 			a.tviewApp.SetFocus(a.outputPanel)
 			return nil
 		}
@@ -233,334 +264,49 @@ func (a *App) setupKeyBindings() {
 	})
 }
 
-// setupInputFieldKeyBindings configures key bindings for the input field
-func (a *App) setupInputFieldKeyBindings() {
-	a.inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyTab:
-			// Handle Tab key press to show autocomplete dropdown (task 5.9)
-			a.updateSuggestions()
-			// Automatically focus on the dropdown if it has suggestions
-			if a.dropdownVisible {
-				a.tviewApp.SetFocus(a.autocompleteDropdown)
-			}
-			return nil // Consume the Tab key event
-		case tcell.KeyEscape:
-			// Hide dropdown when Escape is pressed
-			a.hideDropdown()
-			return nil
-		case tcell.KeyDown:
-			// Handle arrow keys to navigate dropdown selections (task 5.10)
-			if a.dropdownVisible {
-				a.tviewApp.SetFocus(a.autocompleteDropdown)
-				return nil
-			}
-		case tcell.KeyUp:
-			// Handle arrow keys to navigate dropdown selections (task 5.10)
-			if a.dropdownVisible {
-				a.tviewApp.SetFocus(a.autocompleteDropdown)
-				return nil
-			}
-		}
-		return event
-	})
-}
-
-// setupOutputPanelKeyBindings configures key bindings for the output panel
-func (a *App) setupOutputPanelKeyBindings() {
-	a.outputPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyEscape:
-			// Return focus to input field
-			a.tviewApp.SetFocus(a.inputField)
-			return nil
-		case tcell.KeyRune:
-			// If user types any character, return focus to input field and pass the character
-			if event.Rune() == 'i' || event.Rune() == 'I' {
-				a.tviewApp.SetFocus(a.inputField)
-				return nil
-			}
-		}
-		// Allow default behavior for arrow keys, PageUp/PageDown for scrolling
-		return event
-	})
-}
-
-// setupHelpPanelKeyBindings configures key bindings for the help panel
-func (a *App) setupHelpPanelKeyBindings() {
-	a.helpPanel.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyEscape:
-			// Hide help panel and return to previous focus
-			a.hideHelpPanel()
-			return nil
-		}
-		// Allow default behavior for arrow keys, PageUp/PageDown, Home/End for scrolling
-		return event
-	})
-}
-
-// Run starts the tview application
-func (a *App) Run() error {
-	return a.tviewApp.Run()
-}
-
-// Stop stops the tview application
-func (a *App) Stop() {
-	a.tviewApp.Stop()
-}
-
-// GetApplication returns the underlying tview application
-func (a *App) GetApplication() *tview.Application {
-	return a.tviewApp
-}
-
-// setupQueryCallbacks wires up the input field to call the query engine on each keystroke
-func (a *App) setupQueryCallbacks() {
-	a.inputField.SetChangedFunc(func(text string) {
-		// Store the current query
-		a.currentQuery = text
-
-		// Call the query engine with the current path
-		result := a.queryEngine.Query(text)
-
-		// Update output panel with query results in real-time (task 4.8)
-		a.outputPanel.SetText(result.Value)
-
-		// Implement visual feedback for invalid paths (task 4.9 & 4.10)
-		if result.IsValid {
-			// Restore normal color when path becomes valid (task 4.10)
-			a.inputField.SetBorderColor(a.theme.BorderValid)
-		} else {
-			// Change border color to red when path is invalid (task 4.9)
-			a.inputField.SetBorderColor(a.theme.BorderInvalid)
-		}
-	})
-}
-
-// setupFocusHandlers wires up focus change handlers for all focusable components
-func (a *App) setupFocusHandlers() {
-	// Input field focus handler
-	a.inputField.SetFocusFunc(func() {
-		a.setComponentFocus(FocusInputField)
-	})
-
-	// Autocomplete dropdown focus handler
-	a.autocompleteDropdown.SetFocusFunc(func() {
-		a.setComponentFocus(FocusDropdown)
-	})
-
-	// Output panel focus handler (for scrolling)
-	a.outputPanel.SetFocusFunc(func() {
-		a.setComponentFocus(FocusOutputPanel)
-	})
-
-	// Help panel focus handler
-	a.helpPanel.SetFocusFunc(func() {
-		a.setComponentFocus(FocusHelpPanel)
-	})
-}
-
-// showMessage displays a temporary message in the footer (task 6.9)
-func (a *App) showMessage(message string, isError bool) {
-	// Use theme colors: "green" matches theme.ColorSuccess, "red" matches theme.ColorError
-	// tview's text markup requires string color names, not tcell.Color types
-	color := a.theme.ColorSuccess
-	if isError {
-		color = a.theme.ColorError
+// toggleHelp shows/hides the help panel by resizing it, never rebuilding.
+func (a *App) toggleHelp() {
+	a.helpVisible = !a.helpVisible
+	if a.helpVisible {
+		a.outer.ResizeItem(a.helpPanel, 0, 1)
+		a.tviewApp.SetFocus(a.helpPanel)
+	} else {
+		a.outer.ResizeItem(a.helpPanel, 0, 0)
+		a.helpPanel.ScrollToBeginning()
+		a.tviewApp.SetFocus(a.inputField)
 	}
-	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, message))
+}
 
-	// Restore original footer text after 3 seconds
+// copyOutput copies the plain (uncolored) JSON to the clipboard.
+func (a *App) copyOutput() {
+	if err := export.CopyToClipboard(a.plainOutput); err != nil {
+		a.flashMessage(fmt.Sprintf("Error: %v", err), true)
+	} else {
+		a.flashMessage("Copied to clipboard!", false)
+	}
+}
+
+// flashMessage shows a temporary footer message for three seconds.
+func (a *App) flashMessage(msg string, isErr bool) {
+	color := "green"
+	if isErr {
+		color = "red"
+	}
+	a.footer.SetText(fmt.Sprintf("[%s]%s[-]", color, render.EscapeContent(msg)))
 	go func() {
 		time.Sleep(3 * time.Second)
 		a.tviewApp.QueueUpdateDraw(func() {
-			a.footer.SetText(a.originalFooterText)
+			a.footer.SetText(footerText)
 		})
 	}()
 }
 
-// copyToClipboard copies the current output to the clipboard (task 6.7)
-func (a *App) copyToClipboard() {
-	content := a.outputPanel.GetText(false)
-	err := export.CopyToClipboard(content)
-	if err != nil {
-		a.showMessage(fmt.Sprintf("Error: %v", err), true)
-	} else {
-		a.showMessage("Copied to clipboard!", false)
-	}
+// Run starts the application.
+func (a *App) Run() error {
+	return a.tviewApp.Run()
 }
 
-// showSaveDialog displays a modal dialog to prompt for filename (task 6.6 & 6.8)
-func (a *App) showSaveDialog() {
-	// Create a modal input field for filename
-	modal := tview.NewInputField().
-		SetLabel("Save to file: ").
-		SetFieldWidth(40).
-		SetText("output.json")
-
-	modal.SetBorder(true).
-		SetTitle(" Save Output ").
-		SetBorderColor(a.theme.BorderFocused)
-
-	// Create a frame to center the modal
-	frame := tview.NewFrame(modal).
-		SetBorders(2, 2, 2, 2, 4, 4)
-
-	// Handle input
-	modal.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			filename := modal.GetText()
-			if filename != "" {
-				content := a.outputPanel.GetText(false)
-				err := export.SaveToFile(content, filename)
-				if err != nil {
-					a.showMessage(fmt.Sprintf("Error: %v", err), true)
-				} else {
-					a.showMessage(fmt.Sprintf("Saved to %s", filename), false)
-				}
-			}
-			// Restore original layout
-			a.restoreLayout()
-		} else if key == tcell.KeyEscape {
-			// Cancel and restore layout
-			a.restoreLayout()
-		}
-	})
-
-	// Show the modal
-	a.tviewApp.SetRoot(frame, true)
-	a.tviewApp.SetFocus(modal)
-}
-
-// restoreLayout restores the main application layout
-func (a *App) restoreLayout() {
-	if a.dropdownVisible {
-		// Rebuild layout with dropdown
-		a.layout.Clear()
-		a.layout.AddItem(a.inputField, 3, 0, true)
-		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false)
-		a.layout.AddItem(a.outputPanel, 0, 1, false)
-		a.layout.AddItem(a.footer, 1, 0, false)
-	} else {
-		// Rebuild layout without dropdown
-		a.layout.Clear()
-		a.layout.AddItem(a.inputField, 3, 0, true)
-		a.layout.AddItem(a.outputPanel, 0, 1, false)
-		a.layout.AddItem(a.footer, 1, 0, false)
-	}
-	a.tviewApp.SetRoot(a.layout, true)
-	a.tviewApp.SetFocus(a.inputField)
-}
-
-// toggleHelpPanel shows or hides the help panel
-func (a *App) toggleHelpPanel() {
-	if a.helpPanelVisible {
-		a.hideHelpPanel()
-	} else {
-		a.showHelpPanel()
-	}
-}
-
-// showHelpPanel displays the help panel on the right side
-func (a *App) showHelpPanel() {
-	if a.helpPanelVisible {
-		return
-	}
-
-	// Store current focus to restore later
-	a.focusBeforeHelp = a.focusedComponent
-
-	a.helpPanelVisible = true
-
-	// Create vertical flex for main content (left side)
-	mainContent := tview.NewFlex().
-		SetDirection(tview.FlexRow)
-
-	mainContent.AddItem(a.inputField, 3, 0, true)
-	if a.dropdownVisible {
-		mainContent.AddItem(a.autocompleteDropdown, 8, 0, false)
-	}
-	mainContent.AddItem(a.outputPanel, 0, 1, false)
-	mainContent.AddItem(a.footer, 1, 0, false)
-
-	// Create horizontal split (50/50) with main content on left, help panel on right
-	a.layout.Clear()
-	a.layout.SetDirection(tview.FlexColumn)
-	a.layout.AddItem(mainContent, 0, 1, true)
-	a.layout.AddItem(a.helpPanel, 0, 1, false)
-
-	// Focus the help panel
-	a.tviewApp.SetFocus(a.helpPanel)
-}
-
-// hideHelpPanel hides the help panel and restores original layout
-func (a *App) hideHelpPanel() {
-	if !a.helpPanelVisible {
-		return
-	}
-
-	a.helpPanelVisible = false
-
-	// Reset help panel scroll to top
-	a.helpPanel.ScrollToBeginning()
-
-	// Rebuild original vertical layout
-	a.layout.Clear()
-	a.layout.SetDirection(tview.FlexRow)
-	a.layout.AddItem(a.inputField, 3, 0, true)
-	if a.dropdownVisible {
-		a.layout.AddItem(a.autocompleteDropdown, 8, 0, false)
-	}
-	a.layout.AddItem(a.outputPanel, 0, 1, false)
-	a.layout.AddItem(a.footer, 1, 0, false)
-
-	// Restore focus to component that had it before help opened
-	switch a.focusBeforeHelp {
-	case FocusInputField:
-		a.tviewApp.SetFocus(a.inputField)
-	case FocusDropdown:
-		a.tviewApp.SetFocus(a.autocompleteDropdown)
-	case FocusOutputPanel:
-		a.tviewApp.SetFocus(a.outputPanel)
-	default:
-		a.tviewApp.SetFocus(a.inputField)
-	}
-}
-
-// setComponentFocus updates border colors when focus changes between components
-func (a *App) setComponentFocus(newFocus FocusableComponent) {
-	// If focus hasn't changed, nothing to do
-	if a.focusedComponent == newFocus {
-		return
-	}
-
-	// Remove focus styling from previously focused component
-	switch a.focusedComponent {
-	case FocusInputField:
-		// Input field might have validation state, only change if no validation
-		// Let validation states be handled by setupQueryCallbacks
-		a.inputField.SetBorderColor(a.theme.BorderUnfocused)
-	case FocusDropdown:
-		a.autocompleteDropdown.SetBorderColor(a.theme.BorderUnfocused)
-	case FocusOutputPanel:
-		a.outputPanel.SetBorderColor(a.theme.BorderUnfocused)
-	case FocusHelpPanel:
-		a.helpPanel.SetBorderColor(a.theme.BorderUnfocused)
-	}
-
-	// Apply focus styling to newly focused component
-	switch newFocus {
-	case FocusInputField:
-		a.inputField.SetBorderColor(a.theme.BorderFocused)
-	case FocusDropdown:
-		a.autocompleteDropdown.SetBorderColor(a.theme.BorderFocused)
-	case FocusOutputPanel:
-		a.outputPanel.SetBorderColor(a.theme.BorderFocused)
-	case FocusHelpPanel:
-		a.helpPanel.SetBorderColor(a.theme.BorderFocused)
-	}
-
-	// Update tracked focus
-	a.focusedComponent = newFocus
+// Stop stops the application.
+func (a *App) Stop() {
+	a.tviewApp.Stop()
 }
