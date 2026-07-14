@@ -41,12 +41,12 @@ func TestGetHelpContentSyntaxExamples(t *testing.T) {
 
 	// Test that expected syntax examples are present
 	expectedExamples := []string{
-		"users.0",           // Array access
-		"users.#",           // Array count
-		"users.#.name",      // Wildcard query
-		"users.#(age>21)#",  // Conditional query
-		"@reverse",          // Modifier
-		"{name,age}",        // Multi-path query
+		"users.0",          // Array access
+		"users.#",          // Array count
+		"users.#.name",     // Wildcard query
+		"users.#(age>21)#", // Conditional query
+		"@reverse",         // Modifier
+		"{name,age}",       // Multi-path query
 	}
 
 	for _, example := range expectedExamples {

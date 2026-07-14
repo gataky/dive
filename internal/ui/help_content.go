@@ -63,12 +63,6 @@ func getHelpContent() string {
   {name,email,address.city}    Get multiple, including nested
   users.#.{name,age}           Multiple fields from all users
 
-[gray]Array slicing:[-]
-  users.0:3         First 3 elements (0, 1, 2)
-  users.2:5         Elements at index 2, 3, 4
-  users.-3:         Last 3 elements
-  users.:-2         All except last 2
-
 [gray]Query operators:[-]
   ==  !=            Equal, not equal
   <   <=            Less than, less or equal

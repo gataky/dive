@@ -5,9 +5,9 @@
 ## Features
 
 - 🚀 **Real-time Query Engine** - Type gjson paths and see results instantly
-- 🎯 **Smart Autocomplete** - Press Tab for intelligent path suggestions
+- 🎯 **Live Autocomplete** - Always-visible suggestions with Tab cycling
 - 🎨 **Visual Feedback** - Color-coded input (green for valid paths, red for invalid)
-- 📋 **Clipboard Support** - Copy results with Ctrl+C
+- 📋 **Clipboard Support** - Copy results with Ctrl+Y
 - 💾 **Save to File** - Save query results with Ctrl+S
 - ⌨️  **Keyboard Navigation** - Fully keyboard-driven interface
 - 📦 **Flexible Input** - Read from files or stdin
@@ -56,13 +56,13 @@ echo '{"users":[{"name":"Alice"}]}' | jq . | ./dive
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Show autocomplete suggestions |
-| `↑` / `↓` | Navigate autocomplete dropdown |
-| `Enter` | Select autocomplete suggestion |
-| `Esc` | Hide autocomplete dropdown |
-| `Ctrl+C` | Copy current output to clipboard |
+| `Tab` / `Shift+Tab` | Cycle through completions (back to your typed text at the end) |
+| `Esc` | Cancel completion cycling / leave output panel |
+| `F1` | Toggle gjson syntax help |
+| `Ctrl+O` | Focus output panel for scrolling |
+| `Ctrl+Y` | Copy current output to clipboard |
 | `Ctrl+S` | Save output to file |
-| `Ctrl+Q` | Quit application |
+| `Ctrl+C` / `Ctrl+Q` | Quit application |
 
 ## gjson Path Syntax
 
@@ -117,28 +117,31 @@ Run `./dive test.json` and try these paths:
 - `company.name` → Returns: "Acme Corp"
 - `company.employees.0.name` → Returns: "Alice"
 - `company.employees.1.role` → Returns: "Designer"
-- Press `Tab` after typing `company.` to see available fields
+- Type `company.` and the suggestions bar shows the available fields; press `Tab` to cycle through them
 
 ## Features in Detail
 
 ### Autocomplete
 
-Press `Tab` at any time to see available keys at your current path level. The autocomplete system:
-
-- Shows only valid keys from your JSON structure
-- Filters suggestions based on what you've typed
-- Works with nested objects and array indices
-- Navigate with arrow keys, select with Enter
+The suggestions bar under the query box is always visible and updates as you
+type, showing the keys (or array indices) available at your current path
+level. Press `Tab` to cycle through the candidates — your originally typed
+text stays in the cycle, so tabbing past the last candidate brings it back.
+`Shift+Tab` cycles backward and `Esc` cancels the cycle. Completions under
+array-query results (like `users.#(age>30)#`) are offered in gjson's pipe
+form (`users.#(age>30)#|0`), which is the syntax gjson requires there.
 
 ### Visual Feedback
 
-The query input border color indicates path validity:
-- **Green border** - Valid path with results
-- **Red border** - Invalid path (last valid result is retained)
+The output panel always shows the deepest part of your path that matches the
+document — a typo never blanks the view. Its title names the path being
+shown, and when part of your path doesn't match (e.g. `users.0.nmae`), the
+title shows where matching stopped (`users.0 ✗ nmae`) and the query border
+turns red. Output JSON is syntax-highlighted.
 
 ### Export Options
 
-**Copy to Clipboard (Ctrl+C)**
+**Copy to Clipboard (Ctrl+Y)**
 - Copies the current query result to your system clipboard
 - Shows confirmation message in footer
 
@@ -155,21 +158,12 @@ dive/
 ├── main.go                          # Entry point
 ├── internal/
 │   ├── input/                       # JSON input handling
-│   │   ├── reader.go
-│   │   └── reader_test.go
-│   ├── query/                       # gjson query engine
-│   │   ├── engine.go
-│   │   └── engine_test.go
-│   ├── autocomplete/                # Autocomplete system
-│   │   ├── suggester.go
-│   │   └── suggester_test.go
-│   ├── export/                      # Export functionality
-│   │   ├── clipboard.go
-│   │   ├── file.go
-│   │   └── export_test.go
-│   └── ui/                          # Terminal UI
-│       ├── app.go
-│       └── components.go
+│   ├── path/                        # gjson path segmentation
+│   ├── query/                       # deepest-valid-ancestor resolution
+│   ├── autocomplete/                # suggestions + Tab-cycle state
+│   ├── render/                      # pretty-printing and colorizing
+│   ├── export/                      # clipboard / file export
+│   └── ui/                          # tview layout and key bindings
 └── test.json                        # Sample data
 ```
 
@@ -200,12 +194,23 @@ GOOS=darwin GOARCH=arm64 go build
 GOOS=windows GOARCH=amd64 go build
 ```
 
+## Known Limitations
+
+- Very large documents (multiple MB) can show noticeable keystroke latency,
+  since the resolved value is re-rendered on every keystroke.
+- Keys that contain a literal dot (like `fav.movie`) are suggested in
+  escaped form (`fav\.movie`); typing the unescaped dot parses as a path
+  separator, so suggestions pause until the escaped form is used.
+- gjson has no array-slicing syntax (`users.0:3` is not a gjson feature).
+
 ## Dependencies
 
 - [tidwall/gjson](https://github.com/tidwall/gjson) - JSON path queries
 - [rivo/tview](https://github.com/rivo/tview) - Terminal UI framework
 - [gdamore/tcell](https://github.com/gdamore/tcell) - Terminal handling
 - [atotto/clipboard](https://github.com/atotto/clipboard) - Clipboard support
+- [mattn/go-runewidth](https://github.com/mattn/go-runewidth) - Display width measurement
+- [tidwall/pretty](https://github.com/tidwall/pretty) - JSON formatting
 
 ## License
 
