@@ -7,11 +7,14 @@ import (
 	"github.com/gataky/dive/internal/autocomplete"
 	"github.com/gataky/dive/internal/render"
 	"github.com/gataky/dive/internal/ui/theme"
+	"github.com/mattn/go-runewidth"
 )
 
 // formatSuggestions renders the suggestions bar: candidates separated by
 // two spaces, the selected one highlighted, windowed so the selection is
 // always visible, with "… +N more" when candidates overflow the width.
+// selected must be -1 (no selection) or in [0, len(suggs)); out-of-range
+// values render a degraded (near-empty) bar.
 func formatSuggestions(suggs []autocomplete.Suggestion, selected, width int, th *theme.Theme) string {
 	if len(suggs) == 0 {
 		return ""
@@ -43,13 +46,15 @@ func formatSuggestions(suggs []autocomplete.Suggestion, selected, width int, th 
 }
 
 // fitCount returns how many suggestions starting at start fit in width
-// display cells, reserving 12 cells for overflow markers. Always >= 1 so
-// at least the selected candidate renders.
+// display cells, reserving 12 cells for the overflow markers plus 2 for
+// the selected candidate's highlight padding. The reservation assumes the
+// "+N more" count is at most 2 digits; longer counts clip gracefully.
+// Always >= 1 so at least the selected candidate renders.
 func fitCount(suggs []autocomplete.Suggestion, start, width int) int {
-	budget := width - 12
+	budget := width - 14
 	used, n := 0, 0
 	for i := start; i < len(suggs); i++ {
-		cells := len([]rune(suggs[i].Display))
+		cells := runewidth.StringWidth(suggs[i].Display)
 		if n > 0 {
 			cells += 2
 		}

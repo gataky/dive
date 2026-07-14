@@ -67,6 +67,36 @@ func TestFormatSuggestionsSelectedAlwaysVisible(t *testing.T) {
 	}
 }
 
+func TestFormatSuggestionsWideRunes(t *testing.T) {
+	th := theme.DefaultTheme()
+	// Each Display is 9 runes but 18 display cells (CJK runes are 2 cells
+	// wide). Counting runes instead of cells would fit two candidates in
+	// width 40; counting cells fits only one.
+	wide := suggs("名前情報データ構造", "住所電話番号設定値", "会社役職部署所属先")
+	got := formatSuggestions(wide, -1, 40, th)
+	if strings.Contains(got, "住所電話番号設定値") {
+		t.Errorf("second wide candidate should not fit in 40 cells: %q", got)
+	}
+	if !strings.Contains(got, "名前情報データ構造") {
+		t.Errorf("first candidate should render: %q", got)
+	}
+	if !strings.Contains(got, "more") {
+		t.Errorf("expected overflow marker in %q", got)
+	}
+}
+
+func TestFormatSuggestionsTrailingBracketHighlight(t *testing.T) {
+	th := theme.DefaultTheme()
+	got := formatSuggestions(suggs("foo[", "bar"), 0, 80, th)
+	want := "[" + th.SuggestHighlight + "] foo[​ [-:-]"
+	if !strings.Contains(got, want) {
+		t.Errorf("highlighted trailing-bracket candidate mismatch: got %q, want substring %q", got, want)
+	}
+	if !strings.Contains(got, "bar") {
+		t.Errorf("unselected candidate missing: %q", got)
+	}
+}
+
 func TestFormatSuggestionsEscapesMarkup(t *testing.T) {
 	th := theme.DefaultTheme()
 	got := formatSuggestions(suggs("[:::key", "plain"), -1, 80, th)
