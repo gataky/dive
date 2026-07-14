@@ -6,7 +6,7 @@
 
 - 🚀 **Real-time Query Engine** - Type gjson paths and see results instantly
 - 🎯 **Live Autocomplete** - Always-visible suggestions with Tab cycling
-- 🎨 **Visual Feedback** - Color-coded input (green for valid paths, red for invalid)
+- 🎨 **Visual Feedback** - Output title tracks the matched path; red border marks unmatched input
 - 📋 **Clipboard Support** - Copy results with Ctrl+Y
 - 💾 **Save to File** - Save query results with Ctrl+S
 - ⌨️  **Keyboard Navigation** - Fully keyboard-driven interface
