@@ -76,7 +76,6 @@ func getHelpContent() string {
 
 [gray]Combining modifiers:[-]
   users.#.age|@reverse           Ages in reverse order
-  items.#.name|@join             Join all names
   data.@keys                     Get all keys from object
 
 
