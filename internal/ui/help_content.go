@@ -30,10 +30,10 @@ func getHelpContent() string {
   data.*.value           All values (any key)
 
 [gray]Conditional queries:[-]
-  users.#(age>21)#                Count users over 21
-  users.#(active==true)#          Count active users
-  users.#(age>=18 && age<=65)#    Count in age range
-  items.#(price<100)#             Count items under $100
+  users.#(age>21)#                All users over 21
+  users.#(active==true)#          All active users
+  users.#(age>=18 && age<=65)#    All users in age range
+  items.#(price<100)#             All items under $100
 
 [gray]Get filtered results:[-]
   users.#(age>21)#.name           Names of users over 21
@@ -54,7 +54,7 @@ func getHelpContent() string {
   @this                 Current element in context
   @valid                Check if JSON is valid
   @flatten              Flatten nested arrays
-  @join                 Join array elements
+  @join                 Merge objects into one
   @keys                 Get object keys as array
   @values               Get object values as array
 
@@ -87,7 +87,7 @@ func getHelpContent() string {
   users.#               → 2
   users.0.name          → "Alice"
   users.#.name          → ["Alice","Bob"]
-  users.#(age>26)#      → 1
+  users.#(age>26)#      → [{"name":"Bob","age":30}]
   users.#(age>26)#.name → ["Bob"]
   {users.0.name,users.1.age} → {"name":"Alice","age":30}
 `

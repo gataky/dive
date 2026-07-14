@@ -212,6 +212,12 @@ func (a *App) bindKeys() {
 				a.refreshOutput()
 			}
 			return nil
+		case tcell.KeyLeft, tcell.KeyRight, tcell.KeyHome, tcell.KeyEnd:
+			if a.cycle != nil {
+				a.cycle = nil
+				a.refreshSuggestions()
+			}
+			return event
 		}
 		return event
 	})

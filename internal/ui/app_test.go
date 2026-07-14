@@ -377,6 +377,45 @@ func TestApp_HelpToggle(t *testing.T) {
 	})
 }
 
+func TestApp_CursorMoveCommitsCycle(t *testing.T) {
+	app, cleanup := newTestApp(t, testDoc)
+	defer cleanup()
+
+	typeText(app, "users.0.na")
+	waitFor(t, func() bool {
+		return outputTitle(app) == " users.0 ✗ na "
+	})
+
+	// First Tab: "users.0.name"
+	pressKey(app, tcell.KeyTab)
+	waitFor(t, func() bool {
+		return inputText(app) == "users.0.name"
+	})
+
+	// Left arrow key should commit the current candidate and end the cycle
+	pressKey(app, tcell.KeyLeft)
+	waitFor(t, func() bool {
+		// After Left, the cycle should be cleared, so suggestions bar has no highlight
+		barText := suggestionsText(app)
+		return !strings.Contains(barText, "[")
+	})
+
+	// Tab again should start a NEW cycle from "users.0.name", yielding only itself
+	// (not resuming to "users.0.nationality" from the old stale cycle)
+	pressKey(app, tcell.KeyTab)
+	waitFor(t, func() bool {
+		return inputText(app) == "users.0.name"
+	})
+
+	// The cycle must have restarted: the only match for "users.0.name" is itself,
+	// so another Tab should still be "users.0.name" (not the next entry from the
+	// stale cycle, which would be "users.0.nationality").
+	pressKey(app, tcell.KeyTab)
+	if got := inputText(app); got != "users.0.name" {
+		t.Errorf("after Tab→Left→Tab→Tab: expected %q, got %q (stale cycle was not cleared)", "users.0.name", got)
+	}
+}
+
 func TestApp_CtrlYFlashesFooter(t *testing.T) {
 	app, cleanup := newTestApp(t, testDoc)
 	defer cleanup()

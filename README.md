@@ -57,7 +57,7 @@ echo '{"users":[{"name":"Alice"}]}' | jq . | ./dive
 | Key | Action |
 |-----|--------|
 | `Tab` / `Shift+Tab` | Cycle through completions (back to your typed text at the end) |
-| `Esc` | Cancel completion cycling / leave output panel |
+| `Esc` | Cancel completion cycling / leave output panel (also `i` in the output panel) |
 | `F1` | Toggle gjson syntax help |
 | `Ctrl+O` | Focus output panel for scrolling |
 | `Ctrl+Y` | Copy current output to clipboard |
