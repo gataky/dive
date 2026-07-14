@@ -14,13 +14,14 @@ import (
 
 const indentStep = "  "
 
-// escapeContent neutralizes tview markup in document content. tview.Escape
+// EscapeContent neutralizes tview markup in document content. tview.Escape
 // only handles complete [...] tags; an unclosed "[:::" URL-tag prefix would
 // swallow everything up to the next "]" we emit ourselves (verified against
 // tview v0.42). A zero-width space after every "[" makes it an invalid tag
-// start, so all content draws literally with no visible change. Display
-// only — the export path (Pretty) never passes through here.
-func escapeContent(s string) string {
+// start, so all content draws literally with no visible change. Used for all
+// text shown in dynamic-colors views; the export path (Pretty) never passes
+// through here.
+func EscapeContent(s string) string {
 	return strings.ReplaceAll(s, "[", "[​")
 }
 
@@ -53,7 +54,7 @@ func writeValue(b *strings.Builder, v gjson.Result, th *theme.Theme, depth int) 
 			}
 			first = false
 			b.WriteString("\n" + indent + indentStep)
-			fmt.Fprintf(b, "[%s]%s[-]: ", th.JSONKey, escapeContent(strconv.Quote(key.String())))
+			fmt.Fprintf(b, "[%s]%s[-]: ", th.JSONKey, EscapeContent(strconv.Quote(key.String())))
 			writeValue(b, value, th, depth+1)
 			return true
 		})
@@ -89,6 +90,6 @@ func writeValue(b *strings.Builder, v gjson.Result, th *theme.Theme, depth int) 
 		default:
 			color = th.JSONNull
 		}
-		fmt.Fprintf(b, "[%s]%s[-]", color, escapeContent(v.Raw))
+		fmt.Fprintf(b, "[%s]%s[-]", color, EscapeContent(v.Raw))
 	}
 }
